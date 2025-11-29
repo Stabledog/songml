@@ -81,15 +81,22 @@ Humans edit the SongML; LLMs reconcile and maintain metadata.
 # Key: F major
 # Tempo: 92
 # Time: 4/4
+// Example for songml syntax development.  Musically this is junk.
+/*  We do comments C++ style: blocks or // end-of-line snippets
 
 [Verse 1]
-| Fmaj7 | Gm7  C7 | Fmaj7 | Bbmaj7 C7 |
-Melody: F4 G4 A4 Bb4 | A4 G4 F4 F4 | -- | -- |
-Lyrics: "Some - where there's a sky - light" | -- | -- | -- |
+Bar start: 8
+| Fmaj7 | Gm7.. C7 | Fmaj7 | Bbmaj7.. C7 | // Borinnngg...
+Lyrics: "Some - where | there's a | sky - light | " 
 
 [Chorus]
-| Dm7  G7 | Cmaj7  A7 | Dm7 | G7 |
-Comments: Smooth II–V progressions
+Bar start: 32
+Key: continue
+| Dm7..  G7 | Cmaj7..  A7 | Dm7 | G7 |
+
+[Outro] // Key is tbd
+| V7..VI+ | IVmaj7 | III6 | Imaj7add9 |
+
 
 @annotations:
   sources: ["keys.mid", "bass.mid"]
