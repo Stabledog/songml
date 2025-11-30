@@ -2,303 +2,220 @@
 
 ## Overview
 
-SongML is a text-based symbolic language for representing musical ideas in a human-readable and LLM-editable format. It prioritizes **intent over fidelity**, capturing structure, chords, lyrics, and broad musical concepts rather than performance details.
+SongML is a text-based symbolic language for representing musical ideas. It's meant to be **simple and forgiving** — more like a musician's scratch pad than a formal specification.
+
+**Philosophy:** Start minimal, add complexity only when needed. Tools should warn about problems but be permissive in what they accept.
 
 ---
 
-## File Structure
+## Basic Structure
 
-A SongML file consists of three main regions:
-
-1. **Header Block** — Metadata about the composition
-2. **Section Blocks** — Musical content organized by song structure
-3. **Annotations Block** (optional) — Technical metadata and cross-references
-
----
-
-## 1. Header Block
-
-The header uses `# Key: Value` format for core metadata.
-
-### Fields
-
-```
-# Title: <song title> // default: "song1"
-# Key: <key signature> // default: Cmaj
-# Tempo: <bpm>         // default: 100 
-# Time: <time signature> // default: 4/4
-# Composer: <name>     // default: (none, optional)
-# Version: <date|mm.nn> // default: generation date YYYY-MM-DDTHH:MM:SS
-# Notes: <freeform text>
-```
-
-### Example
-```
-# Title: Skylight
-# Key: F major
-# Tempo: 92
-# Time: 4/4
-```
+A SongML file contains:
+1. **Properties** (optional header info)
+2. **Sections** (the actual music)
+3. **Free-form notes** (anything else)
 
 ---
 
-## 2. Comments
+## 1. Properties
 
-SongML uses C++ style comments:
+Properties precede the section(s) to which they apply. Format: `PropertyName: value`
 
-- **Line comments:** `// comment text`
-- **Block comments:** `/* comment text */`
+Common properties:
+```
+Title: You've got a way
+Key: Fmaj
+Tempo: 104
+Time: 4/4
+```
 
-Comments can appear anywhere and are ignored during processing.
+**There's no strict list of properties.** Write what makes sense. Tools will recognize common ones (Title, Key, Tempo ) and ignore unknown ones.
 
 ---
 
-## 3. Section Blocks
+## 2. Comments and Notes
 
-Sections represent structural divisions (Verse, Chorus, Bridge, etc.).
+- `//` starts an end-of-line comment
+- Any line that doesn't match a recognized pattern is ignored
 
-### Syntax
+This means you can write whatever you want:
 ```
-[Section Name]
-<section properties>
-<musical content>
-```
+Note: This is just explanatory text
+TODO: Fix the bridge
+Key: Cmaj  // This is a comment
 
-### Section Properties
-
-**Bar start:** Indicates the bar number where this section begins (for correlation with source files)
-```
-Bar start: 8
+The validator will warn about beat counts but won't reject the file.
 ```
 
-**Key:** Specifies key changes or continuation
-```
-Key: G major          // Change to new key
-Key: continue         // Use previous key
-Key: tbd             // To be determined
-```
 
-### Example
+---
+
+## 3. Sections
+
+Sections are labeled with brackets:
+
 ```
+[Intro]
 [Verse 1]
-Bar start: 8
-Key: F major
-| Fmaj7 | Gm7.. C7 | Fmaj7 | Bbmaj7.. C7 |
+[Chorus - 8 bars]
 ```
+
+The validator recognizes `[Section Name]` and optionally `[Section Name - NN bars]` for documentation and bar count validation or generation.
+
+The validator warns on duplicate section names
 
 ---
 
-## 4. Chord Notation
+## 4. Bar Lines and Numbering
 
-Chords are written within bar delimiters `|` with spaces separating elements.
-
-### Bar Delimiters
-```
-| Cmaj7 | Dm7 | G7 | Cmaj7 |
-```
-
-Each `|` represents a bar line. Content between pipes is one bar's worth of chords.
-
-### Chord timing
-
-Use `.` as a beat duration indicator, infer other information 
-like a musician would:
-
-| C..F | // Play C for 2 beats, then F for remainder of measure
-| C. F... | // C for 1 beat, F for 3, total of 4
-| C F Am G | // One chord per beat
-| C F |  // Divide beats evenly between 2 chords
-
-- If no '.' follows a chord, inference rules take over
-- The semicolon ; indicates 1/2 of a beat (an eight note on 4/4 time)
-- If the bar isn't 'full', the last chord stretches to fill it
-    ```
-    | C; F; Am |  // e.g. Am must be 3 beats long in 4/4 time
-    ```
-
-
-### Chord Symbols
-
-SongML accepts standard chord notation:
-- **Triads:** `C`, `Dm`, `G7`, `Fmaj7`
-- **Extensions:** `Cmaj9`, `G13`, `Dm11`
-- **Alterations:** `G7b9`, `C7#5`, `Dm7b5`
-- **Slash chords:** `C/E`, `Dm7/G`
-
-### Roman Numeral Analysis
-
-Sections may use Roman numerals for harmonic analysis:
-```
-[Outro]
-| V7..VI+ | IVmaj7 | III6 | Imaj7add9 |
-```
-
-This indicates functional harmony relative to the current key.
-
----
-
-## 5. Lyrics
-
-Lyrics are specified on separate lines using the `Lyrics:` prefix.
-
-### Syntax
-```
-Lyrics: | lyric text with | bar separators | for alignment
-```
-- As with chords, periods and semicolons may be used as timing indicators
-```
-Lyrics: | She; gave | . a solemn... | frost. to. the.. | air     |
-      //|  1  2 3 4 | 1 2   3   4   | 1      2   3 4   | 1 2 3 4 |
-```
-- The '.' character is not to be used as a conventional sentence end indicator in lyrics.
-
-### Bar Alignment
-
-Use `|` within the lyrics string to align syllables with bar boundaries:
+Use `|` to mark bars. Numbering bars is optional but helpful:
 
 ```
-| Fmaj7 | Gm7.. C7 | Fmaj7 | Bbmaj7.. C7 |
-Lyrics: |Some..  where | there's a | sky... light |  |
+|   0   |   1   |  2      |   3        |
+| ...;F | F.... | Am .... | Bbmaj7.... |
 ```
+
+**Alignment isn't meaningful.** The parser just looks for `|` symbols. A formatting tool can clean up alignment later.
 
 
 ---
 
-## 7. Grammar Summary
+## 5. Chords
 
-TODO: reverse-engineer a grammar from above content
+Write chords between bar lines. Use standard notation:
+- Basic: `C`, `Dm`, `G7`, `Fmaj7`
+- Extensions: `Cmaj9`, `G13`, `Dm11`
+- Alterations: `G7b9`, `C7#5`
+- Slash chords: `C/E`, `Dm7/G`
 
+### Timing
+
+Use `.` to indicate beat duration:
+```
+| F.... |              // F for 4 beats
+| C.. G.. |            // C for 2, G for 2
+| C. D. E. F. |        // One beat each
+| C D E F |            // One beat each.  The '.' are implicit
+```
+
+Use `;` for half-beats:
+```
+| ...;F |              // Pickup: F on beat 4-and
+| C; D; E.. |          // C on 1, D on 1-and E on 2-4
+```
+
+**Without timing marks:** Chords split the bar evenly.
+```
+| C F |                // Each gets 2 beats in 4/4
+| C F G |              // C and F get 1 beat, G gets 2 (last chord fills the frame that's left)
+```
+
+**The last chord fills remaining space:**
+```
+| C; F; Am |           // Am stretches to fill beats 2-4
+```
 
 ---
 
-## 8. Design Principles Reflected
+## 6. Lyrics
 
-- **Human-readable:** Looks like a structured leadsheet
-- **LLM-friendly:** Consistent, predictable structure
-- **Lossy by design:** No performance details, only musical intent
-- **Diff-friendly:** Line-based structure works with version control
-- **Extensible:** Comments and annotations allow evolution
+Write lyrics on a separate line under chords:
+```
+| F .  .  F9/A  Abdim7/B | Am7/E |
+| You've got a way        | I just knew how to follow |
+```
+
+You can use `|` for alignment if you want, or timing markers:
+```
+| You've. got. a. way. |
+```
+
+**Keep it simple.** Lyrics are for humans reading the chart. Perfect alignment isn't required.
 
 ---
 
-## 9. Design Concerns & Open Questions
+## 7. Key Changes
 
-### Resolved by Current Spec
+Set `Key: Gmaj` as a property outside sections to change key. Roman numerals use the current key context.
 
-1. ~~**Chord duration semantics**~~ — RESOLVED: `.` = beat duration, `;` = half-beat, inference for unmarked chords
-2. ~~**Lyrics timing**~~ — RESOLVED: Same timing notation applies to lyrics
+---
 
-### Ambiguities Requiring Clarification
+## 8. What This Spec Doesn't Define
 
-1. **Bar numbering semantics**
-   - Is `Bar start:` absolute (measure 8 from song start) or relative to previous section?
-   - How do we handle pickup bars or partial measures?
-   - Proposal: Always absolute, use `Bar start: 0.5` for pickup bars?
+**Deliberately vague or permissive:**
 
-2. **Key changes mid-section**
-   - Can key change within a section block, or must it trigger a new section?
-   - Inline syntax needed? `Key: -> G major` on a chord line?
-   - Or force new section: `[Verse 1b]` with `Key: G major`?
+- Exact timing inference rules (tools decide)
+- Whether bar numbers must be accurate (validators warn)
+- How to handle odd time signatures or complex rhythms (add dots as needed, tools figure it out)
+- Repeat structures, codas, dynamics (add them as text notes for now)
+- Voice leading, counterpoint (out of scope)
 
-3. **Timing inference edge cases**
-   - What happens with odd divisions? `| C D E |` in 4/4 — is each chord 1.33 beats?
-   - Should we warn/error, or allow "close enough" inference?
-   - Maximum complexity before explicit timing required?
+**The principle:** If a human can read it and understand the intent, it's valid SongML.
 
-4. **Roman numeral context**
-   - When using Roman numerals, is key context always from section `Key:` property?
-   - Mixed notation in one line: `| Cmaj7 | IVmaj7 |` — allowed or forbidden?
-   - Should we require `Key:` declaration before Roman numerals?
+---
 
-5. **Lyrics without bar markers**
-   - Is `Lyrics: Some text here` valid for free-form sections?
-   - Or must lyrics always align to bars with `|` delimiters?
+## 9. Validation vs. Parsing
 
-### Unresolved Questions
+**Parsers should be permissive:** Accept anything that's roughly the right shape.
 
-6. **Repeat structures**
-   - How to indicate repeats, codas, D.S. al Coda?
-   - Proposed: `[Verse 1] x2` modifier on section header?
-   - Or: `@structure: Verse1, Chorus, Verse1, Chorus` in annotations?
-   - Or: `[Verse 1]` followed by `Repeat: 2` property?
+**Validators should be helpful:** Warn about:
+- Bar numbers that don't match section lengths
+- Beat counts that don't add up
+- Unrecognizable chord symbols
+- Missing required properties
 
-7. **Tempo/time signature changes mid-song**
-   - Can tempo change between sections? Within sections?
-   - Syntax: `Tempo: 120` as section property?
-   - How to represent ritardando, fermatas, or tempo marks like "Freely", "A tempo"?
-   - `Tempo: rit.` or `Tempo: 92 -> 80` for gradual changes?
+But validators don't reject files. They provide line numbers and suggestions.
 
-8. **Time signature changes**
-   - `Time: 3/4` as section property?
-   - Mixed meters within section: `| C |` (4/4) then `| F |` (3/4)?
+**Translation tools** (MIDI→SongML, SongML→MusicXML) can be stricter and abort on ambiguity.
 
-9. **Voice leading / counterpoint**
-   - Is SongML limited to single-line harmony?
-   - Multi-voice syntax: `Voice 1: | ... |` and `Voice 2: | ... |` on separate lines?
-   - Or keep it conceptual and rely on annotations for voice separation?
+---
 
-10. **Chord voicing hints**
-    - Should we allow voicing suggestions (e.g., `Cmaj7{drop2}`, `G7{rootless}`)?
-    - Tension with "conceptual not performance" philosophy
-    - Perhaps reserve for annotations: `@voicing: "guitar drop2 shapes"`?
+## 10. Examples
 
-11. **Groove/feel notation**
-    - How to indicate "swing", "straight 8ths", "half-time feel"?
-    - Section property: `Feel: swing` or `Groove: laid-back`?
-    - Or header-level: `# Feel: swing throughout`?
+### Minimal
+```
+Title: Test Song
 
-12. **Whitespace and formatting**
-    - Is indentation significant for section properties?
-    - Required indentation level (2 spaces, 4 spaces, tabs)?
-    - Or purely stylistic with flexible parsing?
+[Verse]
+| C | F | G | C |
+```
 
-13. **Escaping in lyrics**
-    - How to handle literal pipes `|` in lyrics (e.g., "either/or" or "him|her")?
-    - Standard escaping: `\|` for literal pipe?
-    - What about periods that aren't timing markers: "Mr. Jones"?
-    - Escape with backslash: `Mr\. Jones` or context-aware parsing?
+### With timing and lyrics
+```
+Title: You've Got a Way
+Key: Fmaj
+Tempo: 104
 
-14. **Rest bars and tacet sections**
-    - Notation for full rest bars: `| - |` or `| rest |` or `| % |`?
-    - Longer tacet: `Tacet: 8 bars` as section property?
-    - Or separate section: `[Drum Solo] \n Chords: (tacet)`?
+[Verse 1 - 12 bars]
+|      5                           |                 6                    |
+| F .  .            F9/A  Abdim7/B | Am7/E                                |
+| You've got a way                 | I just knew how to follow but it was |
+```
 
-15. **Chord alternatives / slash notation ambiguity**
-    - Alternate harmonies: `| Cmaj7 / Am7 |` — is this "C or Am7" or "C over Am7 bass"?
-    - Current spec: `/` means slash chord (bass note)
-    - For alternatives: `| Cmaj7 | @alt: Am7` annotation?
-    - Or new syntax: `| Cmaj7 ~ Am7 |` for either/or?
+### With bar numbers in chord row
+```
+[Bridge - 6 bars]
+|  37       |   38          | 39            | 40            |
+| A/C#.. A  | A7/C#.. A7/E  |  E6/G# .. E6  | Edim7/G..  /A |
+```
 
-16. **Melody notation**
-    - Should SongML support explicit melodic content beyond lyrics?
-    - Syntax: `Melody: | C. D E. F | G... A |` using same timing notation?
-    - Or keep melody out of scope entirely?
+---
 
-17. **Annotations block placement**
-    - Must `@annotations:` come at end of file?
-    - Can sections have local annotations?
-    - Syntax: `@section_note:` within section block?
+## Design Principles
 
-18. **Version comparison**
-    - Should `# Version:` support semantic versioning?
-    - How to indicate relationship to previous versions?
-    - `# Version: 2.1 (from 2.0, shortened bridge)`?
+1. **Human-first:** If it looks reasonable to a musician, it's probably fine
+2. **Tool-friendly:** Consistent enough for tools to parse, flexible enough to evolve
+3. **Forgiving:** Warnings, not errors
+4. **Minimal:** Add features when needed, not preemptively
+5. **Inspectable:** Plain text, version control friendly
 
-19. **Default value inheritance**
-    - When `Key: continue` is used, does it inherit from previous section or header?
-    - If section omits `Bar start:`, how do we infer it?
-    - Auto-increment from previous section's bar count?
+---
 
-20. **Incomplete bars and fermatas**
-    - How to notate a bar that intentionally doesn't fill the meter?
-    - `| C... |` in 4/4 — does C hold 3 beats or 4?
-    - Fermata syntax: `| Cmaj7^ |` for "hold this"?
+## Open Questions (for later)
 
-### Next Steps
-
-- Build reference parser to validate timing inference rules
-- Create comprehensive test suite with edge cases (odd meters, pickup bars, modulations)
-- Establish conventions for common patterns (intros, endings, breaks, solos)
-- Define formal EBNF or PEG grammar
-- Design reconciliation protocol between old/new SongML versions
-- Decide on strictness level: permissive (infer everything) vs. explicit (require declarations)
+- Repeat notation (`[Verse] x2` or `Repeat: Verse, Chorus`?)
+- Tempo changes mid-song
+- Multiple voices / counterpoint
+- Groove/feel annotations
+- How to handle transcription confidence from AI tools
+- Formal grammar (EBNF) — do we need one?
