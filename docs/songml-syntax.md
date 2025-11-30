@@ -72,10 +72,14 @@ Use `|` to mark bars. Numbering bars is optional but helpful:
 
 ```
 |   0   |   1   |  2      |   3        |
-| ...;F | F.... | Am .... | Bbmaj7.... |
+| ...;F | F.... | Am      | Bbmaj7.... |
 ```
 
-**Alignment isn't meaningful.** The parser just looks for `|` symbols. A formatting tool can clean up alignment later.
+**Alignment isn't meaningful.** The parser just looks for:
+    `|`: bar delimiter
+    `.`: one beat indicator
+    `;`: 1/2 beat indicator 
+    (A formatting tool can help with alignment for clarity)
 
 
 ---
@@ -92,8 +96,9 @@ Write chords between bar lines. Use standard notation:
 
 Use `.` to indicate beat duration:
 ```
+| F |                  // F for 4 beats
 | F.... |              // F for 4 beats
-| C.. G.. |            // C for 2, G for 2
+| C.. G |              // C for 2, G for 2
 | C. D. E. F. |        // One beat each
 | C D E F |            // One beat each.  The '.' are implicit
 ```
@@ -104,7 +109,7 @@ Use `;` for half-beats:
 | C; D; E.. |          // C on 1, D on 1-and E on 2-4
 ```
 
-**Without timing marks:** Chords split the bar evenly.
+**Without timing marks:** Chords split the bar 
 ```
 | C F |                // Each gets 2 beats in 4/4
 | C F G |              // C and F get 1 beat, G gets 2 (last chord fills the frame that's left)
@@ -119,15 +124,10 @@ Use `;` for half-beats:
 
 ## 6. Lyrics
 
-Write lyrics on a separate line under chords:
+Write lyrics on a separate line:
 ```
-| F .  .  F9/A  Abdim7/B | Am7/E |
-| You've got a way        | I just knew how to follow |
-```
-
-You can use `|` for alignment if you want, or timing markers:
-```
-| You've. got. a. way. |
+| F .  .  F9/A  Abdim7/B | Am7/E                     |
+| You've got a way       | I just knew how to follow |
 ```
 
 **Keep it simple.** Lyrics are for humans reading the chart. Perfect alignment isn't required.
@@ -136,7 +136,7 @@ You can use `|` for alignment if you want, or timing markers:
 
 ## 7. Key Changes
 
-Set `Key: Gmaj` as a property outside sections to change key. Roman numerals use the current key context.
+Set `Key: Gmaj` as a property outside sections to change key. 
 
 ---
 
@@ -148,7 +148,7 @@ Set `Key: Gmaj` as a property outside sections to change key. Roman numerals use
 - Whether bar numbers must be accurate (validators warn)
 - How to handle odd time signatures or complex rhythms (add dots as needed, tools figure it out)
 - Repeat structures, codas, dynamics (add them as text notes for now)
-- Voice leading, counterpoint (out of scope)
+- Melody, voice leading, counterpoint (out of scope)
 
 **The principle:** If a human can read it and understand the intent, it's valid SongML.
 
