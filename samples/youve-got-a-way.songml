@@ -1,32 +1,15 @@
-There can only be one title property, and it cannot be in a named section
-There are a fixed set of property names, like [prop-name]: [value]
 Title:  You've got a way
 
-Keys can be defined or changed only outside of named sections
 Key: Fmaj
 
 Tempo: 104
 
-Note: any line that doesn't match recognized patterns is ignored.
-The prefix "Note:" is not a keyword or semantically significant.
-So the user can type whatever they want, there's no need for block
-comment delimiters.  A double-slash // indicates an end of line comment,
-which can be placed after meaningful token sequences on a line.
 
 [Intro]
 |   0   |   1   |  2      |   3        |    4      |
 | ...;F | F.... | Am .... | Bbmaj7.... | C.. C+7.. |
 
-Note: it's expected that there will be a validator tool that would do things
-like complaining about bad bar numbers (i.e. "they don't add up...").   The
-user is free to misnumber, the tools are relieved of having to solve that.
 
-Similarly unrecognizable chord symbols, beat counts that don't add up.  The
-validator warns, issues line number.  Presumably translation tools which
-import from midi or other formats don't make such mistakes.  Export translation tools are allowed to abort on parse errors.
-
-
-The sequence [Verse N - 12 bars] is parsed as [section-label < - NN bars > ]
 [Verse 1 - 12 bars]
 |      5                           |                 6                    |         7             |       8                             |
 | F .  .            F9/A  Abdim7/B | Am7/E                                | Bb6  Dm7/A  Abdim7 G+ | Gm        Gm7  C7           C+7/Ab  | 
@@ -40,10 +23,6 @@ The sequence [Verse N - 12 bars] is parsed as [section-label < - NN bars > ]
 |  13   |  14    |  15  |     16          |
 | Dm/A  |  G/B   | Bb6  | C7/G...  C+7/Ab |
 
-
-Note: the alignment of bar markers isn't semantically meaningful.  I anticipate a 
-formatting tool that can fix such things.  But it's not an error if parsers don't
-find bars aligned
 
 [Verse 2 - 12 bars]
 |      17                          |                 18                |         19                    |       20                           |
