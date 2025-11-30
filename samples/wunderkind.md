@@ -1,0 +1,19 @@
+
+[Verse1 - 8 bars]
+| 1                         | 2       | 3                        | 4     |
+| A....                     | D.. E.. | A....                    | Bm7 E |
+| The day he set out on his | own     | Brightest mind we'd ever | known | 
+
+| 5                                    | 6                      | 7                             | 8     |
+| Bm9                                  | F#m                    | D....                         | E.... |
+| We all cheered from tower and pillar | making fala deda dilla | Pork chops shever haven conno | row   |
+
+[Bridge]
+|  1  |  2     | 3 | 4      | 5  | 6     | 7          |  8             |
+|  A  | G#dim6 | D | B7 Bm7 | E  | G#/D# | C#m  C#m/B | C#m/A  C#m/G#  |
+
+| 9    | 10         | 11  | 12   |
+| F#m  | E+/G# G#/C | Bm7 | E/G# | 
+
+  10
+| A |
