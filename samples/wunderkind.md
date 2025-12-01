@@ -13,7 +13,7 @@
 |  A  | G#dim6 | D | B7 Bm7 | E  | G#/D# | C#m  C#m/B | C#m/A  C#m/G#  |
 
 | 9    | 10         | 11  | 12   |
-| F#m  | E+/G# G#/C | Bm7 | E/G# | 
+| F#m  | B7         | Bm7 | D  E |
 
   10
 | A |
