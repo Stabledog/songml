@@ -13,7 +13,7 @@
 |  A  | G#dim6 | D | B7 Bm7 | E  | G#/D# | C#m  C#m/B | C#m/A  C#m/G#  |
 | Wunderkind da ka bi do do no | Preconveived and abandon no no | jaba jab je kaba kab ke fo |
 
-| 9    | 10         | 11  | 12   |
+| 9            | 10              | 11  | 12  |
 | F#m/A  G#m/B | C#m/E   C#m/C   | Bm7 |  E7 |
 
   10
