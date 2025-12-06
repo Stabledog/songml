@@ -1,3 +1,5 @@
+Title: Wunderkind
+Key: A
 
 [Verse1 - 8 bars]
 | 1                         | 2       | 3                        | 4     |
@@ -8,13 +10,14 @@
 | Bm9                                  | F#m                    | D....                         | E.... |
 | We all cheered from tower and pillar | making fala deda dilla | Pork chops shever haven conno | row   |
 
-[Bridge]
+[Bridge - 12 bars]
 |  1  |  2     | 3 | 4      | 5  | 6     | 7          |  8             |
 |  A  | G#dim6 | D | B7 Bm7 | E  | G#/D# | C#m  C#m/B | C#m/A  C#m/G#  |
-| Wunderkind da ka bi do do no | Preconveived and abandon no no | jaba jab je kaba kab ke fo |
+| Wunderkind da ka bi do do no | Preconveived and abandon no no | jaba jab je kaba kab ke fo ||||||
 
 | 9            | 10              | 11  | 12  |
 | F#m/A  G#m/B | C#m/E   C#m/C   | Bm7 |  E7 |
 
-  10
+[Tail - 1 bar]
+|  10|
 | A |
