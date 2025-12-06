@@ -1,0 +1,10 @@
+X:1
+T:Simple I V II IV Progression
+M:4/4
+L:1/8
+K:C
+%%score {1 | 2}
+V:1 clef=treble
+E2 G2 c2 G2 | B2 d2 G2 B2 | D2 F2 A2 c2 | F2 A2 c2 A2 |
+V:2 clef=bass
+C,8 | G,8 | D,8 | F,8 |
