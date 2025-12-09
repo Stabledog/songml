@@ -13,3 +13,7 @@ pip install songml-utils
 ```python
 from songml_utils import parse_songml, format_songml
 ```
+
+## LLM Context
+
+[SESSION_CONTEXT.md](SESSION_CONTEXT.md) is a good starting point to feed to LLMs in virgin session.
