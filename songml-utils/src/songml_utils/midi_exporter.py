@@ -1,0 +1,188 @@
+"""MIDI file export from SongML AST."""
+
+import sys
+from typing import List, Tuple, Optional
+from mido import MidiFile, MidiTrack, Message, MetaMessage
+
+from .ast import Document, Section, Property
+from .chord_voicings import get_chord_notes
+
+
+def export_midi(doc: Document, output_path: str) -> None:
+    """
+    Export SongML AST to MIDI file.
+    
+    Args:
+        doc: Parsed SongML document
+        output_path: Path to write .mid file
+        
+    Raises:
+        ValueError: If document has no sections, invalid chords, etc.
+    """
+    # Extract properties
+    tempo_str = _get_property(doc, 'Tempo', default='100')
+    time_sig_str = _get_property(doc, 'Time', default='4/4')
+    key_str = _get_property(doc, 'Key', default='Cmaj')
+    title = _get_property(doc, 'Title', default='Untitled')
+    
+    # Parse properties
+    tempo_bpm = int(tempo_str)
+    numerator, denominator = _parse_time_signature(time_sig_str)
+    beats_per_bar = numerator
+    
+    # Get sections with bars
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    if not sections:
+        raise ValueError("No musical content to export (no sections found)")
+    
+    # Check if any section has bars with chords
+    has_chords = any(
+        bar.chords 
+        for section in sections 
+        for bar in section.bars
+    )
+    if not has_chords:
+        raise ValueError("No musical content to export (no chords found)")
+    
+    # Create MIDI file
+    mid = MidiFile(ticks_per_beat=480)
+    track = MidiTrack()
+    mid.tracks.append(track)
+    
+    # Add meta-events
+    track.append(MetaMessage('track_name', name=title))
+    track.append(MetaMessage('set_tempo', tempo=_bpm_to_microseconds(tempo_bpm)))
+    track.append(MetaMessage('time_signature', numerator=numerator, denominator=denominator))
+    
+    # Add key signature (best effort - warn if invalid)
+    try:
+        key_sig = _parse_key_signature(key_str)
+        track.append(MetaMessage('key_signature', key=key_sig))
+    except ValueError as e:
+        print(f"Warning: {e}, using C major", file=sys.stderr)
+        track.append(MetaMessage('key_signature', key='C'))
+    
+    # Build timeline: collect all note on/off events with absolute ticks
+    events: List[Tuple[int, str, List[int]]] = []
+    
+    # Track absolute bar position across all sections
+    absolute_bar_number = 0
+    
+    for section in sections:
+        for bar in section.bars:
+            # Use absolute bar position, not the bar's labeled number
+            # (bar numbers restart in each section)
+            bar_start_tick = absolute_bar_number * beats_per_bar * 480
+            absolute_bar_number += 1
+            
+            for chord_token in bar.chords:
+                tick = bar_start_tick + int(chord_token.start_beat * 480)
+                duration_ticks = int(chord_token.duration_beats * 480)
+                
+                # Get MIDI notes for this chord
+                try:
+                    notes = get_chord_notes(chord_token.text, root_octave=3)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Error at section '{section.name}', bar {bar.number}, beat {chord_token.start_beat}: {e}"
+                    )
+                
+                events.append((tick, 'note_on', notes))
+                events.append((tick + duration_ticks, 'note_off', notes))
+    
+    # Sort events by time, then by type (note_off before note_on at same time)
+    # This ensures notes are turned off before being turned on again
+    events.sort(key=lambda e: (e[0], e[1] == 'note_on'))
+    
+    # Convert absolute times to delta times and write to track
+    current_tick = 0
+    for tick, event_type, notes in events:
+        delta = tick - current_tick
+        
+        if event_type == 'note_on':
+            for i, note in enumerate(notes):
+                # Only first note in this event group gets the delta time
+                track.append(Message('note_on', note=note, velocity=64, time=delta if i == 0 else 0, channel=0))
+        else:  # note_off
+            for i, note in enumerate(notes):
+                # Only first note in this event group gets the delta time
+                track.append(Message('note_off', note=note, velocity=0, time=delta if i == 0 else 0, channel=0))
+        
+        current_tick = tick
+    
+    # End of track
+    track.append(MetaMessage('end_of_track', time=0))
+    
+    # Save MIDI file
+    mid.save(output_path)
+
+
+def _get_property(doc: Document, name: str, default: str) -> str:
+    """Get property value from document, or return default."""
+    for item in doc.items:
+        if isinstance(item, Property) and item.name == name:
+            return item.value
+    return default
+
+
+def _parse_time_signature(time_sig: str) -> Tuple[int, int]:
+    """Parse time signature string like '4/4' into (numerator, denominator)."""
+    parts = time_sig.split('/')
+    if len(parts) != 2:
+        raise ValueError(f"Invalid time signature format: '{time_sig}'")
+    return int(parts[0]), int(parts[1])
+
+
+def _bpm_to_microseconds(bpm: int) -> int:
+    """Convert BPM to microseconds per quarter note."""
+    return int(60_000_000 / bpm)
+
+
+def _parse_key_signature(key_str: str) -> str:
+    """
+    Parse key signature string into MIDI key signature format.
+    
+    Args:
+        key_str: e.g., "Cmaj", "C", "Fmaj", "Dm", "Dmin"
+        
+    Returns:
+        MIDI key string like "C", "Dm", "F#m"
+        
+    Raises:
+        ValueError: If key string cannot be parsed
+    """
+    key_str = key_str.strip()
+    
+    # Map of common formats to MIDI format
+    # Handle: "Cmaj", "C major", "C", "Dm", "Dmin", "D minor"
+    if key_str.endswith('maj') or key_str.endswith('major'):
+        # Major key
+        root = key_str.replace('maj', '').replace('major', '').strip()
+        return root
+    elif 'min' in key_str.lower() or key_str.endswith('m'):
+        # Minor key
+        root = key_str.replace('min', '').replace('minor', '').replace('m', '').strip()
+        return root + 'm'
+    else:
+        # Assume major if no qualifier
+        return key_str
+
+
+if __name__ == "__main__":
+    # Simple test
+    from .parser import parse_songml
+    
+    test_songml = """
+Title: Test Song
+Key: Cmaj
+Tempo: 120
+Time: 4/4
+
+[Verse - 4 bars]
+| 0 | 1 | 2 | 3 |
+| C | F | G | C |
+"""
+    
+    doc = parse_songml(test_songml)
+    export_midi(doc, "test_output.mid")
+    print("Exported test_output.mid")
