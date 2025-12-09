@@ -66,6 +66,47 @@ def test_slash_chord():
     assert 36 in notes  # C2 (root at octave 3)
 
 
+def test_slash_chord_with_accidentals():
+    """Test slash chords with sharp/flat bass notes."""
+    # C#m7/G# - sharp in both base chord and bass note
+    # C#m7 voicing: C#	0,3,7,10 → C#, E, G#, B
+    # At octave 3: C# = 1+36 = 37, so C#m7 = [37, 40, 44, 47]
+    # Bass G# at octave 2: G# = 8+24 = 32 (G#1)
+    notes = get_chord_notes('C#m7/G#', root_octave=3)
+    assert notes[0] == 32, f"Expected G#1 (32), got {notes[0]}"
+    assert 37 in notes, f"Expected C#2 (37) in chord, got {notes}"
+    assert 44 in notes, f"Expected G#2 (44) in chord, got {notes}"
+    
+    # Fmaj7/Ab - flat bass note
+    # Fmaj7 voicing: F	0,4,7,11 → F, A, C, E
+    # At octave 3: F = 5+36 = 41, so Fmaj7 = [41, 45, 48, 52]
+    # Bass Ab at octave 2: Ab = 8+24 = 32 (Ab1, enharmonic with G#1)
+    notes = get_chord_notes('Fmaj7/Ab', root_octave=3)
+    assert notes[0] == 32, f"Expected Ab1 (32), got {notes[0]}"
+    assert 41 in notes, f"Expected F2 (41) in chord, got {notes}"
+    
+    # D7/F# - sharp bass note
+    # D7 voicing: D	0,4,7,10 → D, F#, A, C
+    # At octave 3: D = 2+36 = 38, so D7 = [38, 42, 45, 48]
+    # Bass F# at octave 2: F# = 6+24 = 30 (F#1)
+    notes = get_chord_notes('D7/F#', root_octave=3)
+    assert notes[0] == 30, f"Expected F#1 (30), got {notes[0]}"
+    assert 38 in notes, f"Expected D2 (38) in chord, got {notes}"
+    assert 42 in notes, f"Expected F#2 (42) in chord, got {notes}"
+
+
+def test_slash_chord_invalid_bass_note():
+    """Test that invalid bass notes raise ValueError."""
+    with pytest.raises(ValueError) as exc_info:
+        get_chord_notes('C7/X')
+    assert "Invalid bass note 'X'" in str(exc_info.value)
+    
+    # Also test with accidental-like but invalid notation
+    with pytest.raises(ValueError) as exc_info:
+        get_chord_notes('C7/H#')
+    assert "Invalid bass note 'H#'" in str(exc_info.value)
+
+
 def test_unknown_chord_raises_error():
     """Test that unknown chord symbols raise ValueError."""
     with pytest.raises(ValueError) as exc_info:
