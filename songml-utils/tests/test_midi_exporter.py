@@ -99,12 +99,12 @@ def test_slash_chord_invalid_bass_note():
     """Test that invalid bass notes raise ValueError."""
     with pytest.raises(ValueError) as exc_info:
         get_chord_notes('C7/X')
-    assert "Invalid bass note 'X'" in str(exc_info.value)
+    assert 'Invalid bass note "X"' in str(exc_info.value)
     
     # Also test with accidental-like but invalid notation
     with pytest.raises(ValueError) as exc_info:
         get_chord_notes('C7/H#')
-    assert "Invalid bass note 'H#'" in str(exc_info.value)
+    assert 'Invalid bass note "H#"' in str(exc_info.value)
 
 
 def test_unknown_chord_raises_error():

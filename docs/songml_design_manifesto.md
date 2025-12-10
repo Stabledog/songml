@@ -145,6 +145,28 @@ SongML remains conceptually closer to a jazz chart than a DAW session.
 
 ---
 
+## Coding principles:
+
+- Don't use complex types in function signatures, e.g. 
+  ```python
+  def get_foo(input: list[tuple[int, list[str]]]) -> tuple[str, str]:
+     ...  # ick. Unreadable, semantics are obscured
+  ```
+
+  Instead, use `TypeAlias` to give domain meaning:
+  
+  ```python
+  from typing import TypeAlias
+  
+  CustomerNotes: TypeAlias = list[str]
+  CustomerIndex: TypeAlias = tuple[int, CustomerNotes]
+  CustomerIndexes: TypeAlias = list[CustomerIndex]
+
+  def get_foo(indexes: CustomerIndexes) -> FooResult:
+    ...  # Yes. Now I have some idea what this thing is doing.
+  ```
+
+
 ## 8. The Human–AI Contract
 
 | Layer | Function | Actor |

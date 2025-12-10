@@ -1,23 +1,40 @@
 """MIDI file export from SongML AST."""
 
-import sys
-from typing import List, Tuple, Optional
-from mido import MidiFile, MidiTrack, Message, MetaMessage
+from __future__ import annotations
 
-from .ast import Document, Section, Property
+__all__ = ["export_midi"]
+
+import sys
+from typing import Final
+
+from mido import Message, MetaMessage, MidiFile, MidiTrack
+
+from .ast import Document, Property, Section
 from .chord_voicings import get_chord_notes
+
+# MIDI constants
+TICKS_PER_BEAT: Final[int] = 480
+DEFAULT_VELOCITY: Final[int] = 64
+DEFAULT_CHANNEL: Final[int] = 0
+DEFAULT_ROOT_OCTAVE: Final[int] = 3
+MICROSECONDS_PER_MINUTE: Final[int] = 60_000_000
 
 
 def export_midi(doc: Document, output_path: str) -> None:
     """
     Export SongML AST to MIDI file.
     
+    Converts the parsed SongML document into a MIDI file using the chord voicing
+    table. Each chord is rendered as simultaneous note events with timing derived
+    from the AST's beat information.
+    
     Args:
-        doc: Parsed SongML document
-        output_path: Path to write .mid file
+        doc: Parsed SongML document containing sections with bars and chords
+        output_path: Path to write the .mid file
         
     Raises:
-        ValueError: If document has no sections, invalid chords, etc.
+        ValueError: If document has no sections, no chords, or contains
+                    unknown chord symbols not in the voicing table
     """
     # Extract properties
     tempo_str = _get_property(doc, 'Tempo', default='100')
@@ -45,7 +62,7 @@ def export_midi(doc: Document, output_path: str) -> None:
         raise ValueError("No musical content to export (no chords found)")
     
     # Create MIDI file
-    mid = MidiFile(ticks_per_beat=480)
+    mid = MidiFile(ticks_per_beat=TICKS_PER_BEAT)
     track = MidiTrack()
     mid.tracks.append(track)
     
@@ -63,7 +80,7 @@ def export_midi(doc: Document, output_path: str) -> None:
         track.append(MetaMessage('key_signature', key='C'))
     
     # Build timeline: collect all note on/off events with absolute ticks
-    events: List[Tuple[int, str, List[int]]] = []
+    events: list[tuple[int, str, list[int]]] = []
     
     # Track absolute bar position across all sections
     absolute_bar_number = 0
@@ -72,20 +89,20 @@ def export_midi(doc: Document, output_path: str) -> None:
         for bar in section.bars:
             # Use absolute bar position, not the bar's labeled number
             # (bar numbers restart in each section)
-            bar_start_tick = absolute_bar_number * beats_per_bar * 480
+            bar_start_tick = absolute_bar_number * beats_per_bar * TICKS_PER_BEAT
             absolute_bar_number += 1
             
             for chord_token in bar.chords:
-                tick = bar_start_tick + int(chord_token.start_beat * 480)
-                duration_ticks = int(chord_token.duration_beats * 480)
+                tick = bar_start_tick + int(chord_token.start_beat * TICKS_PER_BEAT)
+                duration_ticks = int(chord_token.duration_beats * TICKS_PER_BEAT)
                 
                 # Get MIDI notes for this chord
                 try:
-                    notes = get_chord_notes(chord_token.text, root_octave=3)
+                    notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE)
                 except ValueError as e:
                     raise ValueError(
-                        f"Error at section '{section.name}', bar {bar.number}, beat {chord_token.start_beat}: {e}"
-                    )
+                        f"Error at section \"{section.name}\", bar {bar.number}, beat {chord_token.start_beat}: {e}"
+                    ) from e
                 
                 events.append((tick, 'note_on', notes))
                 events.append((tick + duration_ticks, 'note_off', notes))
@@ -102,11 +119,23 @@ def export_midi(doc: Document, output_path: str) -> None:
         if event_type == 'note_on':
             for i, note in enumerate(notes):
                 # Only first note in this event group gets the delta time
-                track.append(Message('note_on', note=note, velocity=64, time=delta if i == 0 else 0, channel=0))
+                track.append(Message(
+                    'note_on',
+                    note=note,
+                    velocity=DEFAULT_VELOCITY,
+                    time=delta if i == 0 else 0,
+                    channel=DEFAULT_CHANNEL,
+                ))
         else:  # note_off
             for i, note in enumerate(notes):
                 # Only first note in this event group gets the delta time
-                track.append(Message('note_off', note=note, velocity=0, time=delta if i == 0 else 0, channel=0))
+                track.append(Message(
+                    'note_off',
+                    note=note,
+                    velocity=0,
+                    time=delta if i == 0 else 0,
+                    channel=DEFAULT_CHANNEL,
+                ))
         
         current_tick = tick
     
@@ -125,17 +154,17 @@ def _get_property(doc: Document, name: str, default: str) -> str:
     return default
 
 
-def _parse_time_signature(time_sig: str) -> Tuple[int, int]:
+def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     """Parse time signature string like '4/4' into (numerator, denominator)."""
     parts = time_sig.split('/')
     if len(parts) != 2:
-        raise ValueError(f"Invalid time signature format: '{time_sig}'")
+        raise ValueError(f"Invalid time signature format: \"{time_sig}\"")
     return int(parts[0]), int(parts[1])
 
 
 def _bpm_to_microseconds(bpm: int) -> int:
     """Convert BPM to microseconds per quarter note."""
-    return int(60_000_000 / bpm)
+    return int(MICROSECONDS_PER_MINUTE / bpm)
 
 
 def _parse_key_signature(key_str: str) -> str:
@@ -159,13 +188,12 @@ def _parse_key_signature(key_str: str) -> str:
         # Major key
         root = key_str.replace('maj', '').replace('major', '').strip()
         return root
-    elif 'min' in key_str.lower() or key_str.endswith('m'):
+    if 'min' in key_str.lower() or key_str.endswith('m'):
         # Minor key
         root = key_str.replace('min', '').replace('minor', '').replace('m', '').strip()
         return root + 'm'
-    else:
-        # Assume major if no qualifier
-        return key_str
+    # Assume major if no qualifier
+    return key_str
 
 
 if __name__ == "__main__":

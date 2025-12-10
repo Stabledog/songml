@@ -3,33 +3,79 @@
 Intentionally forgiving - focuses on extracting meaning rather than strict validation.
 """
 
+from __future__ import annotations
+
+__all__ = ["parse_songml"]
+
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Final
+
 from .ast import (
-    Document, TextBlock, Property, Section, Bar, ChordToken, ParseError
+    Bar,
+    ChordToken,
+    Document,
+    ParseError,
+    Property,
+    Section,
+    TextBlock,
 )
+
+# Default property values
+DEFAULT_TIME_SIGNATURE: Final[str] = "4/4"
+DEFAULT_KEY: Final[str] = "Cmaj"
+DEFAULT_TEMPO: Final[str] = "100"
+DEFAULT_TITLE: Final[str] = "Untitled"
 
 
 def parse_songml(content: str) -> Document:
-    """Parse SongML content into an AST.
+    """Parse SongML content into an abstract syntax tree.
     
-    Single-pass parser with persistent property state.
-    Properties have defaults: Time: 4/4, Key: Cmaj, Tempo: 100, Title: Untitled
+    This is a single-pass parser that maintains persistent property state throughout
+    the document. Properties declared earlier affect all subsequent sections until
+    overridden.
+    
+    Args:
+        content: Complete SongML document text
+        
+    Returns:
+        Document object containing parsed properties, sections, and text blocks
+        
+    Raises:
+        ParseError: If the document contains structural errors such as malformed
+                    sections, invalid bar numbering, or timing conflicts
+    
+    Default property values:
+        - Time: 4/4
+        - Key: Cmaj  
+        - Tempo: 100
+        - Title: Untitled
+        
+    Example:
+        >>> content = '''
+        ... Title: My Song
+        ... Tempo: 120
+        ... [Verse - 4 bars]
+        ... | 0 | 1 | 2 | 3 |
+        ... | C | F | G | C |
+        ... '''
+        >>> doc = parse_songml(content)
+        >>> len(doc.items)
+        3
     """
     lines = content.split('\n')
     
     # Initialize property state with defaults
-    property_state: Dict[str, str] = {
-        'Time': '4/4',
-        'Key': 'Cmaj',
-        'Tempo': '100',
-        'Title': 'Untitled'
+    property_state: dict[str, str] = {
+        "Time": DEFAULT_TIME_SIGNATURE,
+        "Key": DEFAULT_KEY,
+        "Tempo": DEFAULT_TEMPO,
+        "Title": DEFAULT_TITLE,
     }
     
     document = Document()
-    current_text_block: Optional[TextBlock] = None
-    current_section: Optional[Section] = None
-    section_names_seen: set = set()
+    current_text_block: TextBlock | None = None
+    current_section: Section | None = None
+    section_names_seen: set[str] = set()
     
     line_num = 0
     while line_num < len(lines):
@@ -74,7 +120,7 @@ def parse_songml(content: str) -> Document:
             
             # Warn on duplicate section names
             if section_name in section_names_seen:
-                document.warnings.append(f"Line {line_num + 1}: Duplicate section name '{section_name}'")
+                document.warnings.append(f"Line {line_num + 1}: Duplicate section name \"{section_name}\"")
             section_names_seen.add(section_name)
             
             current_section = Section(section_name, bar_count, [], line_num + 1)
@@ -109,8 +155,8 @@ def parse_songml(content: str) -> Document:
 
 def _finalize_section(section: Section, document: Document) -> None:
     """Finalize section: validate bars exist, synthesize empty bars if needed."""
-    if len(section.bars) == 0:
-        raise ParseError(f"Section '{section.name}' has no bars", section.line_number)
+    if not section.bars:
+        raise ParseError(f"Section \"{section.name}\" has no bars", section.line_number)
     
     # Synthesize empty bars if declared count > parsed count
     if len(section.bars) < section.bar_count:
@@ -125,14 +171,19 @@ def _finalize_section(section: Section, document: Document) -> None:
             ))
     elif len(section.bars) > section.bar_count:
         raise ParseError(
-            f"Section '{section.name}' declares {section.bar_count} bars but has {len(section.bars)}",
-            section.line_number
+            f"Section \"{section.name}\" declares {section.bar_count} bars but has {len(section.bars)}",
+            section.line_number,
         )
     
     document.items.append(section)
 
 
-def _parse_section_content(lines: List[str], start_line: int, section: Section, property_state: Dict[str, str]) -> int:
+def _parse_section_content(
+    lines: list[str],
+    start_line: int,
+    section: Section,
+    property_state: dict[str, str],
+) -> int:
     """Parse section content (multi-group bar-number/chord/lyric rows).
     
     Returns the line number to continue parsing from.
@@ -166,7 +217,12 @@ def _parse_section_content(lines: List[str], start_line: int, section: Section, 
     return line_num
 
 
-def _parse_row_group(lines: List[str], start_line: int, section: Section, property_state: Dict[str, str]) -> int:
+def _parse_row_group(
+    lines: list[str],
+    start_line: int,
+    section: Section,
+    property_state: dict[str, str],
+) -> int:
     """Parse one group of rows: bar-number row, chord row, optional lyric row."""
     line_num = start_line
     
@@ -209,7 +265,7 @@ def _parse_row_group(lines: List[str], start_line: int, section: Section, proper
                 if len(lyric_cells) != len(bar_numbers):
                     raise ParseError(
                         f"Lyric row has {len(lyric_cells)} cells, expected {len(bar_numbers)}",
-                        line_num + 1
+                        line_num + 1,
                     )
                 line_num += 1
         
@@ -222,7 +278,7 @@ def _parse_row_group(lines: List[str], start_line: int, section: Section, proper
     return line_num
 
 
-def _split_bar_row(line: str) -> List[str]:
+def _split_bar_row(line: str) -> list[str]:
     """Split a bar-delimited row into cells."""
     # Remove leading/trailing pipes and split
     line = line.strip()
@@ -233,14 +289,17 @@ def _split_bar_row(line: str) -> List[str]:
     return line.split('|')
 
 
-def _parse_bar_number_row(cells: List[str], line_number: int) -> List[int]:
+def _parse_bar_number_row(cells: list[str], line_number: int) -> list[int]:
     """Parse bar-number row: first cell sets counter, auto-increment, validate cells with numbers."""
     if not cells or not cells[0].strip():
         raise ParseError("Bar-number row: first cell must contain a number", line_number)
     
     first_num_text = cells[0].strip()
     if not first_num_text.isdigit():
-        raise ParseError(f"Bar-number row: first cell must be a number, got '{first_num_text}'", line_number)
+        raise ParseError(
+            f"Bar-number row: first cell must be a number, got \"{first_num_text}\"",
+            line_number,
+        )
     
     bar_numbers = []
     current_num = int(first_num_text)
@@ -251,13 +310,16 @@ def _parse_bar_number_row(cells: List[str], line_number: int) -> List[int]:
         if cell_text:
             # Cell has content - must be a number and must match expected
             if not cell_text.isdigit():
-                raise ParseError(f"Bar-number row: cell {i+1} must be a number, got '{cell_text}'", line_number)
+                raise ParseError(
+                    f"Bar-number row: cell {i+1} must be a number, got \"{cell_text}\"",
+                    line_number,
+                )
             actual_num = int(cell_text)
             expected_num = current_num + 1
             if actual_num != expected_num:
                 raise ParseError(
                     f"Bar-number row: gap detected. Expected {expected_num}, got {actual_num}",
-                    line_number
+                    line_number,
                 )
             current_num = actual_num
         else:
@@ -268,8 +330,14 @@ def _parse_bar_number_row(cells: List[str], line_number: int) -> List[int]:
     return bar_numbers
 
 
-def _create_bars(section: Section, bar_numbers: List[int], chord_cells: List[str], 
-                 lyric_cells: Optional[List[str]], property_state: Dict[str, str], line_number: int) -> None:
+def _create_bars(
+    section: Section,
+    bar_numbers: list[int],
+    chord_cells: list[str],
+    lyric_cells: list[str] | None,
+    property_state: dict[str, str],
+    line_number: int,
+) -> None:
     """Create Bar objects with timing inference."""
     time_sig = property_state.get('Time', '4/4')
     beats_per_bar = _parse_time_signature(time_sig, line_number)
@@ -294,7 +362,7 @@ def _parse_time_signature(time_sig: str, line_number: int) -> int:
     """Parse time signature and return beats per bar."""
     match = re.match(r'^(\d+)/(\d+)$', time_sig.strip())
     if not match:
-        raise ParseError(f"Invalid time signature format: '{time_sig}'", line_number)
+        raise ParseError(f"Invalid time signature format: \"{time_sig}\"", line_number)
     
     numerator = int(match.group(1))
     denominator = int(match.group(2))
@@ -305,7 +373,11 @@ def _parse_time_signature(time_sig: str, line_number: int) -> int:
     return numerator
 
 
-def _parse_chord_tokens(chord_text: str, beats_per_bar: int, line_number: int) -> List[ChordToken]:
+def _parse_chord_tokens(
+    chord_text: str,
+    beats_per_bar: int,
+    line_number: int,
+) -> list[ChordToken]:
     """Parse chord tokens with timing inference.
     
     Timing rules:
@@ -372,7 +444,7 @@ def _parse_chord_tokens(chord_text: str, beats_per_bar: int, line_number: int) -
             if current_beat > beats_per_bar:
                 raise ParseError(
                     f"Beat overflow: accumulated {current_beat} beats exceeds {beats_per_bar}",
-                    line_number
+                    line_number,
                 )
             
             # Duration is determined by suffix dots or by last-chord-fills rule

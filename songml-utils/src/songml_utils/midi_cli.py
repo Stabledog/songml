@@ -1,13 +1,26 @@
 """CLI entry point for songml-to-midi command."""
 
+from __future__ import annotations
+
 import sys
-from .parser import parse_songml
+
 from .ast import ParseError
 from .midi_exporter import export_midi
+from .parser import parse_songml
 
 
-def main():
-    """CLI entry point for songml-to-midi command."""
+def main() -> None:
+    """CLI entry point for songml-to-midi command.
+    
+    Converts a SongML file to MIDI format using the chord voicing table.
+    
+    Usage:
+        songml-to-midi INPUT.songml OUTPUT.mid
+    
+    Exit codes:
+        0: Success
+        1: Parse error, export error, or file not found
+    """
     if len(sys.argv) < 3:
         print("Usage: songml-to-midi INPUT.songml OUTPUT.mid", file=sys.stderr)
         sys.exit(1)

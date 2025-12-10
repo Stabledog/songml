@@ -5,18 +5,22 @@ The voicing table is a TSV file with no chord symbol parsing.
 Each line: ChordSymbol<TAB>Root<TAB>Offset1,Offset2,...
 """
 
+from __future__ import annotations
+
+__all__ = ["get_chord_notes", "load_voicing_table", "NOTE_TO_MIDI"]
+
 import os
-from typing import Dict, Tuple, List
+from typing import Final
 
 # Map of note names to MIDI numbers at octave 0
-NOTE_TO_MIDI = {
+NOTE_TO_MIDI: Final[dict[str, int]] = {
     'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
     'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
     'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
 }
 
 
-def load_voicing_table(tsv_path: str = None) -> Dict[str, Tuple[str, List[int]]]:
+def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list[int]]]:
     """
     Load chord voicing table from TSV file.
     
@@ -42,19 +46,23 @@ def load_voicing_table(tsv_path: str = None) -> Dict[str, Tuple[str, List[int]]]
             
             parts = line.split('\t')
             if len(parts) != 3:
-                raise ValueError(f"Line {line_num}: Expected 3 tab-separated fields, got {len(parts)}")
+                raise ValueError(
+                    f"Line {line_num}: Expected 3 tab-separated fields, got {len(parts)}"
+                )
             
             chord_symbol, root_note, offsets_str = parts
             
             # Validate root note
             if root_note not in NOTE_TO_MIDI:
-                raise ValueError(f"Line {line_num}: Invalid root note '{root_note}'")
+                raise ValueError(f"Line {line_num}: Invalid root note \"{root_note}\"")
             
             # Parse offsets
             try:
                 offsets = [int(x.strip()) for x in offsets_str.split(',')]
             except ValueError as e:
-                raise ValueError(f"Line {line_num}: Invalid offsets '{offsets_str}': {e}")
+                raise ValueError(
+                    f"Line {line_num}: Invalid offsets \"{offsets_str}\": {e}"
+                ) from e
             
             table[chord_symbol] = (root_note, offsets)
     
@@ -62,10 +70,10 @@ def load_voicing_table(tsv_path: str = None) -> Dict[str, Tuple[str, List[int]]]
 
 
 # Global voicing table - loaded once at module import
-_VOICING_TABLE = load_voicing_table()
+_VOICING_TABLE: Final[dict[str, tuple[str, list[int]]]] = load_voicing_table()
 
 
-def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> List[int]:
+def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:
     """
     Get MIDI note numbers for a chord symbol.
     
@@ -87,11 +95,15 @@ def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> List[int]:
         base_chord, bass_str = chord_symbol.split('/', 1)
         bass_note = bass_str.strip()
         if bass_note not in NOTE_TO_MIDI:
-            raise ValueError(f"Invalid bass note '{bass_note}' in chord '{chord_symbol}'")
+            raise ValueError(
+                f"Invalid bass note \"{bass_note}\" in chord \"{chord_symbol}\""
+            )
     
     # Lookup chord voicing
     if base_chord not in _VOICING_TABLE:
-        raise ValueError(f"Unknown chord symbol '{base_chord}' (not in voicing table)")
+        raise ValueError(
+            f"Unknown chord symbol \"{base_chord}\" (not in voicing table)"
+        )
     
     root_note, offsets = _VOICING_TABLE[base_chord]
     

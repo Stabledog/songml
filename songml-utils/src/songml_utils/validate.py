@@ -1,12 +1,26 @@
 """SongML validation CLI - parses and outputs AST as JSON."""
 
+from __future__ import annotations
+
 import sys
+
+from .ast import ParseError, Property, Section
 from .parser import parse_songml
-from .ast import ParseError, Section, Property
 
 
-def main():
-    """CLI entry point for songml-validate command."""
+def main() -> None:
+    """CLI entry point for songml-validate command.
+    
+    Parses a SongML file and outputs the AST as JSON to stdout, with validation
+    messages and warnings written to stderr.
+    
+    Usage:
+        songml-validate <file.songml>
+    
+    Exit codes:
+        0: Success
+        1: Parse error or file not found
+    """
     if len(sys.argv) < 2:
         print("Usage: songml-validate <file.songml>", file=sys.stderr)
         sys.exit(1)

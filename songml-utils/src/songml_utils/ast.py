@@ -1,11 +1,23 @@
 """Abstract syntax tree definitions for SongML."""
 
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Union
+from __future__ import annotations
+
+__all__ = [
+    "ChordToken",
+    "Bar",
+    "Section",
+    "Property",
+    "TextBlock",
+    "Document",
+    "ParseError",
+]
+
 import json
+from dataclasses import asdict, dataclass, field
+from typing import Self
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class ChordToken:
     """A single chord symbol with its timing information within a bar."""
     text: str  # Opaque chord text (e.g., "C", "Dm7", "F9/A", "/Bb")
@@ -17,45 +29,45 @@ class ChordToken:
         return {"type": "ChordToken", **asdict(self)}
 
 
-@dataclass
+@dataclass(slots=True)
 class Bar:
     """A single bar containing chords and optional lyrics."""
     number: int  # Bar number (sequential within section)
-    chords: List[ChordToken] = field(default_factory=list)  # Empty for synthesized bars
-    lyrics: Optional[str] = None  # Lyric text for this bar
+    chords: list[ChordToken] = field(default_factory=list)  # Empty for synthesized bars
+    lyrics: str | None = None  # Lyric text for this bar
     line_number: int = 0  # Source line number for error reporting
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
             "type": "Bar",
             "number": self.number,
             "chords": [c.to_dict() for c in self.chords],
             "lyrics": self.lyrics,
-            "line_number": self.line_number
+            "line_number": self.line_number,
         }
 
 
-@dataclass
+@dataclass(slots=True)
 class Section:
     """A named section with a declared bar count and bar sequence."""
     name: str  # Section name (e.g., "Verse 1", "Chorus")
     bar_count: int  # Declared number of bars
-    bars: List[Bar] = field(default_factory=list)  # Flat sequence of bars
+    bars: list[Bar] = field(default_factory=list)  # Flat sequence of bars
     line_number: int = 0  # Source line number for error reporting
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
             "type": "Section",
             "name": self.name,
             "bar_count": self.bar_count,
             "bars": [b.to_dict() for b in self.bars],
-            "line_number": self.line_number
+            "line_number": self.line_number,
         }
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class Property:
     """A property declaration (e.g., Key: Cmaj, Tempo: 120)."""
     name: str  # Property name (e.g., "Key", "Tempo", "Title")
@@ -67,10 +79,10 @@ class Property:
         return {"type": "Property", **asdict(self)}
 
 
-@dataclass
+@dataclass(slots=True)
 class TextBlock:
     """A block of free-form text, comments, or unrecognized content."""
-    lines: List[str] = field(default_factory=list)  # Lines of text
+    lines: list[str] = field(default_factory=list)  # Lines of text
     line_number: int = 0  # Starting line number
     
     def to_dict(self) -> dict:
@@ -81,16 +93,16 @@ class TextBlock:
 @dataclass
 class Document:
     """Top-level document containing sequence of text blocks, properties, and sections."""
-    items: List[Union[TextBlock, Property, Section]] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)  # Non-fatal issues (e.g., duplicate sections)
+    items: list[TextBlock | Property | Section] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)  # Non-fatal issues (e.g., duplicate sections)
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
             "version": "1.0",
             "type": "Document",
             "items": [item.to_dict() for item in self.items],
-            "warnings": self.warnings
+            "warnings": self.warnings,
         }
     
     def to_json(self, indent: int = 2) -> str:
@@ -98,7 +110,7 @@ class Document:
         return json.dumps(self.to_dict(), indent=indent)
     
     @classmethod
-    def from_dict(cls, data: dict) -> 'Document':
+    def from_dict(cls, data: dict[str, object]) -> Self:
         """Deserialize from dict. Future hook for loading AST JSON."""
         # TODO: Implement deserialization when needed
         # This keeps the API ready for bidirectional conversion
@@ -106,8 +118,14 @@ class Document:
 
 
 class ParseError(Exception):
-    """Exception raised when parser encounters a structural error."""
-    def __init__(self, message: str, line_number: int):
+    """Exception raised when parser encounters a structural error.
+    
+    Attributes:
+        message: The error message describing the issue
+        line_number: The line number where the error occurred
+    """
+    
+    def __init__(self, message: str, line_number: int) -> None:
         self.message = message
         self.line_number = line_number
         super().__init__(f"Line {line_number}: {message}")
