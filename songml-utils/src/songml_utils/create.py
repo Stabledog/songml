@@ -171,7 +171,7 @@ def create_project(song_name: str, key_input: str) -> None:
     # Load template
     template = load_template()
     
-    # Replace tokens
+    # Replace tokens with basic chord symbols (no padding - leave formatting to format command)
     content = template.replace('{{title}}', song_name)
     content = content.replace('{{key}}', key_value)
     content = content.replace('{{I}}', chords['I'])

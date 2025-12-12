@@ -361,9 +361,9 @@ class TestSanitizeProjectName:
     
     def test_forbidden_characters(self):
         """Test removal of Windows forbidden characters."""
-        assert sanitize_project_name('Song <with> forbidden:chars') == 'song--with--forbidden-chars'
+        assert sanitize_project_name('Song <with> forbidden:chars') == 'song-with-forbidden-chars'
         assert sanitize_project_name('File/Path\\Name') == 'file-path-name'
-        assert sanitize_project_name('Question?Mark*') == 'question-mark-'
+        assert sanitize_project_name('Question?Mark*') == 'question-mark'
     
     def test_multiple_separators(self):
         """Test handling of multiple consecutive separators."""
