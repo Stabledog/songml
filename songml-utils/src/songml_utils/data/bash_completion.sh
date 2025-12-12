@@ -5,9 +5,17 @@
 #   source ~/.config/bash_completion.d/songml
 #
 
+# Simple initialization for our completion functions
+_songml_init() {
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    words=("${COMP_WORDS[@]}")
+    cword=$COMP_CWORD
+}
+
 _songml_create() {
     local cur prev words cword
-    _init_completion || return
+    _songml_init
 
     case "$prev" in
         -h|--help)
@@ -26,7 +34,7 @@ _songml_create() {
 
 _songml_format() {
     local cur prev words cword
-    _init_completion || return
+    _songml_init
 
     case "$prev" in
         -h|--help)
@@ -49,7 +57,7 @@ _songml_format() {
 
 _songml_validate() {
     local cur prev words cword
-    _init_completion || return
+    _songml_init
 
     case "$prev" in
         -h|--help)
@@ -72,7 +80,7 @@ _songml_validate() {
 
 _songml_to_midi() {
     local cur prev words cword
-    _init_completion || return
+    _songml_init
 
     case "$prev" in
         -h|--help)
@@ -111,7 +119,7 @@ _songml_to_midi() {
 
 _songml_bashcompletion() {
     local cur prev words cword
-    _init_completion || return
+    _songml_init
 
     if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "-h --help" -- "$cur") )
@@ -121,11 +129,17 @@ _songml_bashcompletion() {
     return 0
 }
 
-# Register completion functions
+# Register completion functions for both with and without .exe extension
+# (needed for Windows/Git Bash where executables have .exe suffix)
 complete -F _songml_create songml-create
+complete -F _songml_create songml-create.exe
 complete -F _songml_format songml-format
+complete -F _songml_format songml-format.exe
 complete -F _songml_validate songml-validate
+complete -F _songml_validate songml-validate.exe
 complete -F _songml_to_midi songml-to-midi
+complete -F _songml_to_midi songml-to-midi.exe
 complete -F _songml_bashcompletion songml-bashcompletion
+complete -F _songml_bashcompletion songml-bashcompletion.exe
 
 # vim: ft=bash
