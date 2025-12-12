@@ -10,7 +10,7 @@ from typing import Final
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 from .ast import Document, Property, Section
-from .chord_voicings import get_chord_notes
+from .chord_voicings import get_chord_notes, reload_voicing_table
 
 # MIDI constants
 TICKS_PER_BEAT: Final[int] = 480
@@ -20,7 +20,7 @@ DEFAULT_ROOT_OCTAVE: Final[int] = 3
 MICROSECONDS_PER_MINUTE: Final[int] = 60_000_000
 
 
-def export_midi(doc: Document, output_path: str) -> None:
+def export_midi(doc: Document, output_path: str, voicings_path: str | None = None) -> None:
     """
     Export SongML AST to MIDI file.
     
@@ -31,11 +31,16 @@ def export_midi(doc: Document, output_path: str) -> None:
     Args:
         doc: Parsed SongML document containing sections with bars and chords
         output_path: Path to write the .mid file
+        voicings_path: Optional path to chord_voicings.tsv (None = use default)
         
     Raises:
         ValueError: If document has no sections, no chords, or contains
                     unknown chord symbols not in the voicing table
     """
+    # Load project-local voicings if provided
+    if voicings_path:
+        reload_voicing_table(voicings_path)
+    
     # Extract properties
     tempo_str = _get_property(doc, 'Tempo', default='100')
     time_sig_str = _get_property(doc, 'Time', default='4/4')

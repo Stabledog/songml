@@ -7,7 +7,7 @@ Each line: ChordSymbol<TAB>Root<TAB>Offset1,Offset2,...
 
 from __future__ import annotations
 
-__all__ = ["get_chord_notes", "load_voicing_table", "NOTE_TO_MIDI"]
+__all__ = ["get_chord_notes", "load_voicing_table", "reload_voicing_table", "NOTE_TO_MIDI"]
 
 import os
 from typing import Final
@@ -69,8 +69,19 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
     return table
 
 
-# Global voicing table - loaded once at module import
-_VOICING_TABLE: Final[dict[str, tuple[str, list[int]]]] = load_voicing_table()
+# Global voicing table - loaded once at module import, can be reloaded
+_VOICING_TABLE: dict[str, tuple[str, list[int]]] = load_voicing_table()
+
+
+def reload_voicing_table(tsv_path: str | None = None) -> None:
+    """
+    Reload the global voicing table from a different TSV file.
+    
+    Args:
+        tsv_path: Path to TSV file (None = use default)
+    """
+    global _VOICING_TABLE
+    _VOICING_TABLE = load_voicing_table(tsv_path)
 
 
 def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:

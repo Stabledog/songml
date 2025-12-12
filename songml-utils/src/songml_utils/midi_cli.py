@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .ast import ParseError
@@ -31,7 +32,13 @@ def main() -> None:
             content = f.read()
         
         doc = parse_songml(content)
-        export_midi(doc, output_file)
+        
+        # Check for project-local chord_voicings.tsv
+        input_dir = os.path.dirname(os.path.abspath(input_file))
+        local_voicings = os.path.join(input_dir, 'chord_voicings.tsv')
+        voicings_path = local_voicings if os.path.exists(local_voicings) else None
+        
+        export_midi(doc, output_file, voicings_path)
         
         print(f"✓ Exported to {output_file}", file=sys.stderr)
         

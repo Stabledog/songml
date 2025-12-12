@@ -513,3 +513,51 @@ Time: 4/4
     finally:
         if os.path.exists(output_file):
             os.remove(output_file)
+
+
+def test_project_local_voicings(tmp_path):
+    """Test that export_midi uses project-local chord_voicings.tsv when provided."""
+    # Create a custom voicings file with a unique chord
+    custom_voicings = tmp_path / "chord_voicings.tsv"
+    custom_voicings.write_text(
+        "# Custom voicings\n"
+        "TestChord\tC\t0,5,9\n"  # C + F + A (non-standard voicing)
+        "C\tC\t0,4,7\n"
+    )
+    
+    # Create a simple SongML file
+    songml = """
+# Title: Test Song
+# Key: C major
+# Tempo: 120
+
+[Section - 1 bar]
+| 0 |
+| TestChord |
+"""
+    
+    doc = parse_songml(songml)
+    output_file = str(tmp_path / "test_custom.mid")
+    
+    try:
+        # Export with custom voicings
+        export_midi(doc, output_file, voicings_path=str(custom_voicings))
+        
+        # Verify the MIDI file was created
+        assert os.path.exists(output_file)
+        
+        # Load and check that notes match custom voicing
+        mid = MidiFile(output_file)
+        notes_on = [msg.note for track in mid.tracks 
+                    for msg in track if msg.type == 'note_on' and msg.velocity > 0]
+        
+        # Should have C2(36), F2(41), A2(45) based on custom voicing at octave 3
+        # (octave 3 in the code means MIDI octave notation where C3 = MIDI 48,
+        # but the calculation is: C at octave 0 is 0, octave 3 is 0 + 3*12 = 36)
+        expected_notes = [36, 41, 45]
+        assert sorted(notes_on) == sorted(expected_notes), \
+            f"Expected {expected_notes}, got {sorted(notes_on)}"
+        
+    finally:
+        if os.path.exists(output_file):
+            os.remove(output_file)
