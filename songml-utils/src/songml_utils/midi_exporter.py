@@ -31,13 +31,13 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
     Args:
         doc: Parsed SongML document containing sections with bars and chords
         output_path: Path to write the .mid file
-        voicings_path: Optional path to chord_voicings.tsv (None = use default)
+        voicings_path: Optional path to chord_voicings.tsv (None = auto-discover or use default)
         
     Raises:
         ValueError: If document has no sections, no chords, or contains
                     unknown chord symbols not in the voicing table
     """
-    # Load project-local voicings if provided
+    # Override with explicit voicings path if provided (otherwise auto-discovered)
     if voicings_path:
         reload_voicing_table(voicings_path)
     

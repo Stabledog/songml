@@ -7,7 +7,7 @@ Each line: ChordSymbol<TAB>Root<TAB>Offset1,Offset2,...
 
 from __future__ import annotations
 
-__all__ = ["get_chord_notes", "load_voicing_table", "reload_voicing_table", "NOTE_TO_MIDI"]
+__all__ = ["get_chord_notes", "load_voicing_table", "reload_voicing_table", "get_voicing_table", "NOTE_TO_MIDI"]
 
 import os
 from typing import Final
@@ -24,8 +24,13 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
     """
     Load chord voicing table from TSV file.
     
+    Search order:
+    1. Explicit tsv_path if provided
+    2. ./chord_voicings.tsv (current working directory)
+    3. data/chord_voicings.tsv (package default)
+    
     Args:
-        tsv_path: Path to TSV file (default: data/chord_voicings.tsv)
+        tsv_path: Path to TSV file (default: search local, then package)
         
     Returns:
         Dict mapping chord symbol → (root_note, [semitone_offsets])
@@ -34,8 +39,13 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
         ValueError: If table has invalid format
     """
     if tsv_path is None:
-        # Default to data/chord_voicings.tsv relative to this file
-        tsv_path = os.path.join(os.path.dirname(__file__), 'data', 'chord_voicings.tsv')
+        # Try local directory first
+        local_path = os.path.join(os.getcwd(), 'chord_voicings.tsv')
+        if os.path.exists(local_path):
+            tsv_path = local_path
+        else:
+            # Fall back to package default
+            tsv_path = os.path.join(os.path.dirname(__file__), 'data', 'chord_voicings.tsv')
     
     table = {}
     with open(tsv_path, 'r', encoding='utf-8') as f:
@@ -82,6 +92,16 @@ def reload_voicing_table(tsv_path: str | None = None) -> None:
     """
     global _VOICING_TABLE
     _VOICING_TABLE = load_voicing_table(tsv_path)
+
+
+def get_voicing_table() -> dict[str, tuple[str, list[int]]]:
+    """
+    Get the currently loaded voicing table.
+    
+    Returns:
+        Dict mapping chord symbol → (root_note, [semitone_offsets])
+    """
+    return _VOICING_TABLE
 
 
 def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:

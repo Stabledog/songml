@@ -44,3 +44,5 @@ Thumbs.db
 
 # Project specific
 tmp/
+songml-utils/src/songml_utils/data/voicing-validator.py
+songml-utils/src/songml_utils/data/chord_voicing_validation_report.txt
