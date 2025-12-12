@@ -2,7 +2,7 @@ Title: {{title}}
 
 Key: {{key}}
 
-Tempo: 120
+Tempo: 100
 Time: 4/4
 
 [Intro - 4 bars]
@@ -13,13 +13,11 @@ Time: 4/4
 |   5   |   6   |   7   |   8   |   9   |   10  |   11  |   12  |
 | {{I}} | {{vi}} | {{IV}} | {{V}} | {{I}} | {{vi}} | {{IV}} | {{V}} |
 | Walking down this empty street tonight | Looking for a sign of something right |
-| The city lights are fading in the distance | Time keeps moving with such persistence |
 
 [Chorus - 8 bars]
 |   13  |   14  |   15  |   16  |   17  |   18  |   19  |   20  |
 | {{I}} | {{vi}} | {{IV}} | {{V}} | {{I}} | {{vi}} | {{IV}} | {{V}} |
 | This is where we find ourselves again | Searching for the words we can't explain |
-| Maybe tomorrow brings a clearer view | Until then I'll keep singing this refrain |
 
 [Bridge - 4 bars]
 |   21  |   22  |   23  |   24  |
