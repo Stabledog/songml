@@ -8,6 +8,30 @@ Python utilities for working with SongML files - a relaxed, forgiving format for
 pip install songml-utils
 ```
 
+## CLI Commands
+
+All commands support `--help` for detailed usage information:
+
+- **songml-create** - Create a new SongML project from template
+- **songml-format** - Format SongML files with aligned bar markers
+- **songml-validate** - Parse and validate SongML, output AST as JSON
+- **songml-to-midi** - Convert SongML to MIDI using chord voicings
+- **songml-bashcompletion** - Generate bash completion script
+
+### Bash Completion
+
+Enable tab completion for all songml commands:
+
+```bash
+songml-bashcompletion > ~/.config/bash_completion.d/songml
+source ~/.config/bash_completion.d/songml
+```
+
+Or add to `~/.bashrc`:
+```bash
+source ~/.config/bash_completion.d/songml
+```
+
 ## Usage
 
 ```python
@@ -16,4 +40,4 @@ from songml_utils import parse_songml, format_songml
 
 ## LLM Context
 
-[SESSION_CONTEXT.md](SESSION_CONTEXT.md) is a good starting point to feed to LLMs in virgin session.
+[../docs/songml_design_manifesto.md] is a good starting context file.

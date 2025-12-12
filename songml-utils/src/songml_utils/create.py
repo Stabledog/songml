@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import shutil
@@ -207,32 +208,23 @@ def create_project(song_name: str, key_input: str) -> None:
 
 
 def main() -> None:
-    """CLI entry point for songml-create command.
+    """CLI entry point for songml-create command."""
+    parser = argparse.ArgumentParser(
+        description="Create a new SongML project with templated structure.",
+        epilog="""Examples:
+  %(prog)s "My Song" C
+  %(prog)s "Sad Song" C#min
+  %(prog)s "Jazz Standard" Bb""",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('song_name', metavar='SONG_NAME',
+                        help='name of the song (used for directory and file)')
+    parser.add_argument('key', metavar='KEY',
+                        help='musical key (e.g., C, F#min, Bb)')
     
-    Creates a new SongML project with templated structure.
-    
-    Usage:
-        songml-create "Song Name" [root][min]
-        
-    Examples:
-        songml-create "My Song" C
-        songml-create "Sad Song" C#min
-        songml-create "Jazz Standard" Bb
-    
-    Exit codes:
-        0: Success
-        1: Invalid arguments, file errors, or creation failure
-    """
-    if len(sys.argv) != 3:
-        print("Usage: songml-create \"Song Name\" [root][min]", file=sys.stderr)
-        print("\nExamples:", file=sys.stderr)
-        print("  songml-create \"My Song\" C", file=sys.stderr)
-        print("  songml-create \"Sad Song\" C#min", file=sys.stderr)
-        print("  songml-create \"Jazz Standard\" Bb", file=sys.stderr)
-        sys.exit(1)
-    
-    song_name = sys.argv[1]
-    key_input = sys.argv[2]
+    args = parser.parse_args()
+    song_name = args.song_name
+    key_input = args.key
     
     try:
         create_project(song_name, key_input)

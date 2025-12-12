@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 
 from .ast import ParseError
@@ -10,23 +11,20 @@ from .parser import parse_songml
 
 
 def main() -> None:
-    """CLI entry point for songml-to-midi command.
+    """CLI entry point for songml-to-midi command."""
+    parser = argparse.ArgumentParser(
+        description="Convert a SongML file to MIDI format using chord voicing table.",
+        epilog="Example:\n  %(prog)s song.songml song.mid",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('input', metavar='INPUT',
+                        help='input SongML file')
+    parser.add_argument('output', metavar='OUTPUT',
+                        help='output MIDI file')
     
-    Converts a SongML file to MIDI format using the chord voicing table.
-    
-    Usage:
-        songml-to-midi INPUT.songml OUTPUT.mid
-    
-    Exit codes:
-        0: Success
-        1: Parse error, export error, or file not found
-    """
-    if len(sys.argv) < 3:
-        print("Usage: songml-to-midi INPUT.songml OUTPUT.mid", file=sys.stderr)
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    args = parser.parse_args()
+    input_file = args.input
+    output_file = args.output
     
     try:
         with open(input_file, 'r', encoding='utf-8') as f:

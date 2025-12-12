@@ -13,6 +13,7 @@ Key principles:
 
 from __future__ import annotations
 
+import argparse
 import sys
 from dataclasses import dataclass
 
@@ -243,32 +244,31 @@ def format_songml(content: str) -> str:
 
 
 def main() -> None:
-    """CLI entry point for songml-format command.
+    """CLI entry point for songml-format command."""
+    parser = argparse.ArgumentParser(
+        description="Format SongML files by aligning bar markers (|) vertically.",
+        epilog="""Examples:
+  %(prog)s song.songml              # Print to stdout
+  %(prog)s song.songml -i           # Format in-place
+  %(prog)s song.songml out.songml   # Write to output file""",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('input', metavar='INPUT',
+                        help='input SongML file')
+    parser.add_argument('output', metavar='OUTPUT', nargs='?',
+                        help='output file (default: stdout)')
+    parser.add_argument('-i', '--inplace', action='store_true',
+                        help='format file in-place')
     
-    Usage:
-        songml-format INPUT.songml              # Print to stdout
-        songml-format INPUT.songml -i           # Format in-place
-        songml-format INPUT.songml OUTPUT.songml  # Write to OUTPUT
-    
-    Exit codes:
-        0: Success
-        1: File error or invalid arguments
-    """
-    if len(sys.argv) < 2:
-        print("Usage: songml-format INPUT.songml              # Print to stdout", file=sys.stderr)
-        print("       songml-format INPUT.songml -i|--inplace  # Format in-place", file=sys.stderr)
-        print("       songml-format INPUT.songml OUTPUT.songml # Write to OUTPUT", file=sys.stderr)
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    inplace = '-i' in sys.argv or '--inplace' in sys.argv
+    args = parser.parse_args()
+    input_file = args.input
     
     # Determine output destination
     output_file = None
-    if inplace:
+    if args.inplace:
         output_file = input_file
-    elif len(sys.argv) > 2 and sys.argv[2] not in ['-i', '--inplace']:
-        output_file = sys.argv[2]
+    elif args.output:
+        output_file = args.output
     
     try:
         with open(input_file, 'r', encoding='utf-8') as f:

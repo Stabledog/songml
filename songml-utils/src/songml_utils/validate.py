@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 
 from .ast import ParseError, Property, Section
@@ -9,23 +10,16 @@ from .parser import parse_songml
 
 
 def main() -> None:
-    """CLI entry point for songml-validate command.
+    """CLI entry point for songml-validate command."""
+    parser = argparse.ArgumentParser(
+        description="Parse and validate a SongML file, output AST as JSON.",
+        epilog="Validation messages go to stderr, JSON output to stdout."
+    )
+    parser.add_argument('file', metavar='FILE',
+                        help='SongML file to validate')
     
-    Parses a SongML file and outputs the AST as JSON to stdout, with validation
-    messages and warnings written to stderr.
-    
-    Usage:
-        songml-validate <file.songml>
-    
-    Exit codes:
-        0: Success
-        1: Parse error or file not found
-    """
-    if len(sys.argv) < 2:
-        print("Usage: songml-validate <file.songml>", file=sys.stderr)
-        sys.exit(1)
-    
-    filename = sys.argv[1]
+    args = parser.parse_args()
+    filename = args.file
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             content = f.read()

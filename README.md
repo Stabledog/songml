@@ -1,3 +1,3 @@
 # `songml` -- text-first music composition tool
 
-[Syntax](docs/songml-syntax.md)
+See [docs/songml_design_manifesto.md]
