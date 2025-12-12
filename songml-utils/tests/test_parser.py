@@ -68,18 +68,41 @@ def test_section_header_parsing():
 
 
 def test_section_header_missing_bar_count():
-    """Test that section without bar count is treated as text block."""
+    """Test that section without bar count raises ParseError."""
     content = """
 [Intro]
 | 0 |
 | C |
 """
-    # Section header without bar count doesn't match section pattern,
-    # so it's treated as text and the bar rows become orphaned text too
-    doc = parse_songml(content)
-    # Should have only text blocks, no sections
-    sections = [item for item in doc.items if isinstance(item, Section)]
-    assert len(sections) == 0
+    # Section header without bar count should raise ParseError
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "must declare bar count" in str(exc_info.value)
+    assert "[Section Name - N bars]" in str(exc_info.value)
+
+
+def test_invalid_section_headers():
+    """Test various invalid section header formats all raise ParseError."""
+    test_cases = [
+        ("[Intro]", "simple section without bar count"),
+        ("[Verse 1]", "section with number but no bar count"),
+        ("[Chorus - complex name]", "section with dash but no bar count"),
+        ("[Bridge - 8]", "section with number but missing 'bars' keyword"),
+        ("[Outro - bars]", "section with 'bars' but no number"),
+    ]
+    
+    for header, description in test_cases:
+        content = f"""
+Title: Test Song
+{header}
+| C | F | G | C |
+"""
+        with pytest.raises(ParseError) as exc_info:
+            parse_songml(content)
+        
+        error_msg = str(exc_info.value)
+        assert "must declare bar count" in error_msg, f"Failed for {description}: {header}"
+        assert "[Section Name - N bars]" in error_msg, f"Failed for {description}: {header}"
 
 
 def test_bar_number_detection_and_validation():
@@ -486,16 +509,21 @@ def test_youve_got_a_way_sample():
     
     # Check basic structure
     sections = [item for item in doc.items if isinstance(item, Section)]
-    # Note: Intro section doesn't have bar count so it's treated as text
-    assert len(sections) == 5  # Verse 1, Verse 2, Chorus, Bridge, Return
+    # All sections now have bar counts and should be parsed correctly
+    assert len(sections) == 6  # Intro, Verse 1, Verse 2, Chorus, Bridge, Return
     
     props = [item for item in doc.items if isinstance(item, Property)]
     title_props = [p for p in props if p.name == 'Title']
     assert len(title_props) == 1
     assert 'way' in title_props[0].value.lower()
     
-    # Check first section (Verse 1, since Intro doesn't have bar count)
-    verse1 = sections[0]
+    # Check first section (Intro, which now has proper bar count)
+    intro = sections[0]
+    assert intro.name == 'Intro'
+    assert intro.bar_count == 5
+    
+    # Check second section (Verse 1)
+    verse1 = sections[1]
     assert verse1.name == 'Verse 1'
     assert verse1.bar_count == 12
     assert len(verse1.bars) == 12

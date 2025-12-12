@@ -119,13 +119,22 @@ def parse_songml(content: str) -> Document:
             bar_count = int(section_match.group(2))
             
             # Warn on duplicate section names
-            if section_name in section_names_seen:
+            if section_names_seen and section_name in section_names_seen:
                 document.warnings.append(f"Line {line_num + 1}: Duplicate section name \"{section_name}\"")
             section_names_seen.add(section_name)
             
             current_section = Section(section_name, bar_count, [], line_num + 1)
             line_num += 1
             continue
+        
+        # Check for section header without bar count - this is an error
+        invalid_section_match = re.match(r'^\[(.+?)\]$', line.strip())
+        if invalid_section_match:
+            section_name = invalid_section_match.group(1).strip()
+            raise ParseError(
+                f"Section \"{section_name}\" must declare bar count. Use format: [Section Name - N bars]",
+                line_num + 1
+            )
         
         # Check if we're inside a section and this looks like a bar-delimited row
         if current_section and '|' in line:

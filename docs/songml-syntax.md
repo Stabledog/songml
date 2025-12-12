@@ -52,17 +52,21 @@ The validator will warn about beat counts but won't reject the file.
 
 ## 3. Sections
 
-Sections are labeled with brackets:
+Sections are labeled with brackets and **must** declare their bar count:
 
 ```
-[Intro]
-[Verse 1]
+[Intro - 4 bars]
+[Verse 1 - 12 bars]
 [Chorus - 8 bars]
 ```
 
-The validator recognizes `[Section Name]` and optionally `[Section Name - NN bars]` for documentation and bar count validation or generation.
+The parser recognizes only `[Section Name - NN bars]` format. Bar counts are required for:
+- Clear structural documentation
+- Validation of bar content vs. declared length
+- Automatic synthesis of missing bars
 
-The validator warns on duplicate section names
+The parser aborts with an error if a section header lacks a bar count.
+The parser warns on duplicate section names
 
 ---
 
