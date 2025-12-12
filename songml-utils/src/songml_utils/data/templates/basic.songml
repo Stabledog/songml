@@ -1,0 +1,29 @@
+Title: {{title}}
+
+Key: {{key}}
+
+Tempo: 100
+Time: 4/4
+
+[Intro - 4 bars]
+|   1   |   2   |   3   |   4   |
+| {{I}} | {{vi}} | {{IV}} | {{V}} |
+
+[Verse - 8 bars]
+|   5   |   6   |   7   |   8   |   9   |   10  |   11  |   12  |
+| {{I}} | {{vi}} | {{IV}} | {{V}} | {{I}} | {{vi}} | {{IV}} | {{V}} |
+| five  | six  |  seven | eight | nine | ten | eleven | twelve |
+
+[Chorus - 8 bars]
+|   13  |   14  |   15  |   16  |   17  |   18  |   19  |   20  |
+| {{I}} | {{vi}} | {{IV}} | {{V}} | {{I}} | {{vi}} | {{IV}} | {{V}} |
+
+
+[Bridge - 4 bars]
+|   21  |   22  |   23  |   24  |
+| {{vi}} | {{IV}} | {{I}} | {{V}} |
+
+
+[Outro - 4 bars]
+|   25  |   26  |   27  |   28  |
+| {{I}} | {{vi}} | {{IV}} | {{V}} |

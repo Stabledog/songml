@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
+songml-create = "songml_utils.create:main"
 songml-format = "songml_utils.formatter:main"
 songml-validate = "songml_utils.validate:main"
 songml-to-midi = "songml_utils.midi_cli:main"
