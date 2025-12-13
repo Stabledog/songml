@@ -61,6 +61,7 @@ A SongML file contains:
 - **Timing markers**: 
   - `.` = one beat
   - `;` = half beat
+  - `...` = silence/rest (e.g., `...;F` means rest for 3.5 beats, then F on beat 4-and)
   - No markers = chords split the bar evenly
   - Last chord fills remaining space
 - **Comments**: `//` for end-of-line comments
@@ -79,8 +80,8 @@ Time: 4/4
 | ...;Fmaj7   | G7    | Am    | Bbmaj7.... |
 
 [Verse 1 - 8 bars]
-| F..  F9/A  Abdim7/B | Am7/E            | Bb6  Dm7/A | Gm  C7     |
-| You've got a way    | I knew to follow | good       | The light  |
+| F..  F9/A  Abdim7/B | Am7/E                                | Bb6  Dm7/A | Gm  C7     |
+| You've got a way    | I just knew how to follow but it was | good       | The light  |
 ```
 
 ## Technical Implementation
@@ -227,9 +228,9 @@ pip install -e .          # Install in development mode
 
 # Test the tools
 songml-create "Test Song" C
-songml-validate samples/youve-got-a-way.songml
-songml-format samples/youve-got-a-way.songml
-songml-to-midi samples/youve-got-a-way.songml output.mid
+songml-validate ../samples/youve-got-a-way.songml
+songml-format ../samples/youve-got-a-way.songml
+songml-to-midi ../samples/youve-got-a-way.songml output.mid
 ```
 
 ### Adding New Chord Voicings
