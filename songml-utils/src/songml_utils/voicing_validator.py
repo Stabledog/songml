@@ -92,54 +92,57 @@ def validate_chord_voicing(
     except KeyError as e:
         return (False, f"Cannot map expected component to pitch class: {e}")
     
+    # Convert expected pitch classes to offsets relative to root
+    expected_offsets = sorted({(pc - root_pc) % 12 for pc in expected_pcs})
+    
     # Compare: voicing should contain all expected chord tones
     # (Allow extra notes like doubled roots, octave extensions, etc.)
     if not expected_pcs.issubset(voicing_pcs):
-        missing = expected_pcs - voicing_pcs
-        missing_notes = [note for note, pc in NOTE_TO_PC.items() if pc in missing]
+        missing_pcs = expected_pcs - voicing_pcs
+        missing_offsets = sorted({(pc - root_pc) % 12 for pc in missing_pcs})
         return (
             False,
-            f"Voicing missing expected chord tones: {sorted(missing_notes)} "
-            f"(voicing PCs: {sorted(voicing_pcs)}, expected PCs: {sorted(expected_pcs)})"
+            f"Voicing missing expected chord tones at offsets: {missing_offsets} "
+            f"(voicing has offsets: {sorted(offsets)}, expected: {expected_offsets})"
         )
     
     # Also warn if voicing has unexpected pitch classes
     # (This is lenient - we just warn, don't fail)
     extra = voicing_pcs - expected_pcs
     if extra:
-        extra_notes = [note for note, pc in NOTE_TO_PC.items() if pc in extra]
+        extra_offsets = sorted({(pc - root_pc) % 12 for pc in extra})
         return (
             False,
-            f"Voicing contains unexpected pitch classes: {sorted(extra_notes)} "
-            f"(voicing PCs: {sorted(voicing_pcs)}, expected PCs: {sorted(expected_pcs)})"
+            f"Voicing contains unexpected offsets: {extra_offsets} "
+            f"(voicing has: {sorted(offsets)}, expected: {expected_offsets})"
         )
     
     return (True, None)
 
 
 def validate_voicing_table(
-    table: dict[str, tuple[str, list[int]]]
+    table: dict[str, tuple[str, list[int], str, int]]
 ) -> list[str]:
     """
     Validate all entries in a chord voicing table.
     
     Args:
-        table: Dict mapping chord_symbol -> (root_note, offsets)
+        table: Dict mapping chord_symbol -> (root_note, offsets, source_path, line_num)
         
     Returns:
-        List of warning messages (empty if all valid)
+        List of warning messages with source location (empty if all valid)
         
     Example:
-        >>> table = {"Cmaj7": ("C", [0, 4, 7, 11]), "Dm7": ("D", [0, 3, 7, 10])}
+        >>> table = {"Cmaj7": ("C", [0, 4, 7, 11], "voicings.tsv", 5)}
         >>> warnings = validate_voicing_table(table)
         >>> len(warnings)
         0
     """
     warnings = []
     
-    for chord_symbol, (root_note, offsets) in table.items():
+    for chord_symbol, (root_note, offsets, source_path, line_num) in table.items():
         is_valid, warning_msg = validate_chord_voicing(chord_symbol, root_note, offsets)
         if not is_valid and warning_msg:
-            warnings.append(f"Chord '{chord_symbol}': {warning_msg}")
+            warnings.append(f"{source_path}:{line_num}: Chord '{chord_symbol}': {warning_msg}")
     
     return warnings

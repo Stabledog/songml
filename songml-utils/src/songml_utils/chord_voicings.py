@@ -20,7 +20,7 @@ NOTE_TO_MIDI: Final[dict[str, int]] = {
 }
 
 
-def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list[int]]]:
+def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list[int], str, int]]:
     """
     Load chord voicing table from TSV file.
     
@@ -33,7 +33,7 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
         tsv_path: Path to TSV file (default: search local, then package)
         
     Returns:
-        Dict mapping chord symbol → (root_note, [semitone_offsets])
+        Dict mapping chord symbol → (root_note, [semitone_offsets], source_path, line_number)
         
     Raises:
         ValueError: If table has invalid format
@@ -74,13 +74,13 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
                     f"Line {line_num}: Invalid offsets \"{offsets_str}\": {e}"
                 ) from e
             
-            table[chord_symbol] = (root_note, offsets)
+            table[chord_symbol] = (root_note, offsets, tsv_path, line_num)
     
     return table
 
 
 # Global voicing table - loaded once at module import, can be reloaded
-_VOICING_TABLE: dict[str, tuple[str, list[int]]] = load_voicing_table()
+_VOICING_TABLE: dict[str, tuple[str, list[int], str, int]] = load_voicing_table()
 
 
 def reload_voicing_table(tsv_path: str | None = None) -> None:
@@ -94,12 +94,12 @@ def reload_voicing_table(tsv_path: str | None = None) -> None:
     _VOICING_TABLE = load_voicing_table(tsv_path)
 
 
-def get_voicing_table() -> dict[str, tuple[str, list[int]]]:
+def get_voicing_table() -> dict[str, tuple[str, list[int], str, int]]:
     """
     Get the currently loaded voicing table.
     
     Returns:
-        Dict mapping chord symbol → (root_note, [semitone_offsets])
+        Dict mapping chord symbol → (root_note, [semitone_offsets], source_path, line_number)
     """
     return _VOICING_TABLE
 
@@ -136,7 +136,7 @@ def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:
             f"Unknown chord symbol \"{base_chord}\" (not in voicing table)"
         )
     
-    root_note, offsets = _VOICING_TABLE[base_chord]
+    root_note, offsets, _source_path, _line_num = _VOICING_TABLE[base_chord]
     
     # Calculate MIDI note numbers
     root_midi = NOTE_TO_MIDI[root_note] + (root_octave * 12)

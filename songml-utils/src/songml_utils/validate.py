@@ -39,7 +39,7 @@ def main() -> None:
                 print(f"  {warning}", file=sys.stderr)
         
         # Validate chord voicings
-        chord_symbols = _extract_chord_symbols(doc)
+        chord_symbols = _extract_chord_symbols(doc, filename)
         if chord_symbols or args.all:
             voicing_warnings = _validate_chord_voicings(chord_symbols, validate_all=args.all)
             if voicing_warnings:
@@ -63,9 +63,13 @@ def main() -> None:
         sys.exit(1)
 
 
-def _extract_chord_symbols(doc) -> set[str]:
-    """Extract all unique chord symbols from the parsed document."""
-    symbols = set()
+def _extract_chord_symbols(doc, filename: str) -> dict[str, tuple[str, int]]:
+    """Extract all unique chord symbols from the parsed document with their first occurrence location.
+    
+    Returns:
+        Dict mapping chord_symbol -> (source_file, line_number)
+    """
+    symbols = {}
     
     for item in doc.items:
         if isinstance(item, Section):
@@ -73,13 +77,20 @@ def _extract_chord_symbols(doc) -> set[str]:
                 for chord_token in bar.chords:
                     # Skip rest markers and empty chords
                     if chord_token.text and chord_token.text not in ('-', '.', ''):
-                        symbols.add(chord_token.text)
+                        # Track first occurrence only
+                        if chord_token.text not in symbols:
+                            symbols[chord_token.text] = (filename, bar.line_number)
     
     return symbols
 
 
-def _validate_chord_voicings(chord_symbols: set[str], validate_all: bool = False) -> list[str]:
-    """Validate chord voicings for symbols used in the document (or all if validate_all=True)."""
+def _validate_chord_voicings(chord_symbols_with_loc: dict[str, tuple[str, int]], validate_all: bool = False) -> list[str]:
+    """Validate chord voicings for symbols used in the document (or all if validate_all=True).
+    
+    Args:
+        chord_symbols_with_loc: Dict mapping chord_symbol -> (source_file, line_number)
+        validate_all: If True, validate entire voicing table regardless of usage
+    """
     voicing_table = get_voicing_table()
     
     if validate_all:
@@ -89,25 +100,30 @@ def _validate_chord_voicings(chord_symbols: set[str], validate_all: bool = False
     
     # For slash chords, only validate the base chord (before the '/')
     # Any bass note can be used with slash chords, so we don't validate the full symbol
-    base_chord_symbols = set()
-    for chord in chord_symbols:
+    base_chord_to_full = {}  # Map base chord -> (full_symbol, source, line)
+    for chord, (source, line) in chord_symbols_with_loc.items():
         if '/' in chord:
-            base_chord_symbols.add(chord.split('/')[0])
+            base = chord.split('/')[0]
+            # Track first occurrence of each base chord
+            if base not in base_chord_to_full:
+                base_chord_to_full[base] = (chord, source, line)
         else:
-            base_chord_symbols.add(chord)
+            if chord not in base_chord_to_full:
+                base_chord_to_full[chord] = (chord, source, line)
     
     # Filter table to only base chords used in this document
     used_voicings = {
         symbol: voicing 
         for symbol, voicing in voicing_table.items() 
-        if symbol in base_chord_symbols
+        if symbol in base_chord_to_full
     }
     
     # Check for unknown symbols (base chords not in voicing table)
     warnings = []
-    unknown_symbols = base_chord_symbols - set(voicing_table.keys())
+    unknown_symbols = set(base_chord_to_full.keys()) - set(voicing_table.keys())
     for symbol in sorted(unknown_symbols):
-        warnings.append(f"Unknown chord symbol '{symbol}' (not in voicing table)")
+        full_symbol, source, line = base_chord_to_full[symbol]
+        warnings.append(f"{source}:{line}: Unknown chord symbol '{symbol}' (not in voicing table)")
     
     # Validate known voicings
     theory_warnings = validate_voicing_table(used_voicings)
