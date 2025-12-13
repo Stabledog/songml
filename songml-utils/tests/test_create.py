@@ -228,13 +228,15 @@ class TestCreateProject:
             intro_section_start = content.find('[Intro - 4 bars]')
             assert intro_section_start != -1
             
-            # Get the next few lines after the intro header
-            intro_lines = content[intro_section_start:].split('\n')[1:3]  # Get bar number and chord lines
+            # Get lines after the intro header, filtering for bar lines only
+            intro_content = content[intro_section_start:].split('\n')
+            intro_bar_lines = [line for line in intro_content if line.strip().startswith('|')]
             
-            # Both lines should have the same | positions (formatted alignment)
-            if len(intro_lines) >= 2:
-                line1_bars = [i for i, c in enumerate(intro_lines[0]) if c == '|']
-                line2_bars = [i for i, c in enumerate(intro_lines[1]) if c == '|']
+            # Check that we have at least 2 bar lines to compare
+            if len(intro_bar_lines) >= 2:
+                # Compare the first two bar lines (typically bar numbers and chords)
+                line1_bars = [i for i, c in enumerate(intro_bar_lines[0]) if c == '|']
+                line2_bars = [i for i, c in enumerate(intro_bar_lines[1]) if c == '|']
                 
                 # If both lines have bars, they should align
                 if line1_bars and line2_bars:
