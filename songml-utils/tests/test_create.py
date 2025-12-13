@@ -235,14 +235,14 @@ class TestMainCLI:
         """Test CLI with insufficient arguments."""
         with pytest.raises(SystemExit) as exc_info:
             main()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 2  # argparse returns 2 for usage errors
     
     @patch('sys.argv', ['songml-create', 'Song', 'C', 'extra'])
     def test_main_too_many_args(self):
         """Test CLI with too many arguments."""
         with pytest.raises(SystemExit) as exc_info:
             main()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 2  # argparse returns 2 for usage errors
     
     @patch('sys.argv', ['songml-create', 'Test Song', 'InvalidKey'])
     @patch('songml_utils.create.create_project', side_effect=ValueError("Invalid key"))

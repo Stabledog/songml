@@ -166,6 +166,8 @@ SongML remains conceptually closer to a jazz chart than a DAW session.
     ...  # Yes. Now I have some idea what this thing is doing.
   ```
 
+- Always test complex logic.  If the logic is entangled with dependencies that are hard to test, isolate the complex logic from the dependencies with redesign, or monkey-patching, or mocking.   Tests are essential to allow the application to evolve safely.
+
 
 ## 8. The Human–AI Contract
 

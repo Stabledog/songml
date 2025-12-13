@@ -159,6 +159,9 @@ def parse_songml(content: str) -> Document:
     if current_text_block:
         document.items.append(current_text_block)
     
+    # Validate bar numbering continuity across sections
+    _validate_bar_continuity(document)
+    
     return document
 
 
@@ -499,3 +502,32 @@ def _parse_chord_tokens(
         i += 1
     
     return chord_tokens
+
+
+def _validate_bar_continuity(document: Document) -> None:
+    """Validate that bar numbers continue sequentially across sections.
+    
+    Adds warnings to document if bar numbering restarts or has gaps between sections.
+    Bar numbers should continue from the end of one section to the start of the next.
+    """
+    expected_next_bar = 1  # First section should start at 1
+    
+    for item in document.items:
+        if not isinstance(item, Section):
+            continue
+        
+        if not item.bars:
+            continue
+        
+        first_bar_num = item.bars[0].number
+        last_bar_num = item.bars[-1].number
+        
+        # Check if this section starts where we expect
+        if first_bar_num != expected_next_bar:
+            document.warnings.append(
+                f"Line {item.line_number}: Section \"{item.name}\" starts at bar {first_bar_num}, "
+                f"but should continue from bar {expected_next_bar}"
+            )
+        
+        # Next section should start after the last bar of this section
+        expected_next_bar = last_bar_num + 1

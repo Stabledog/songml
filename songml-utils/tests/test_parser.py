@@ -375,15 +375,16 @@ def test_duplicate_section_warning():
     """Test that duplicate section names generate warnings."""
     content = """
 [Verse - 2 bars]
-| 0 | 1 |
+| 1 | 2 |
 | C | F |
 
 [Verse - 2 bars]
-| 2 | 3 |
+| 3 | 4 |
 | G | Am |
 """
     doc = parse_songml(content)
     
+    # Should warn about duplicate section name
     assert len(doc.warnings) == 1
     assert 'Duplicate section name' in doc.warnings[0]
     assert 'Verse' in doc.warnings[0]

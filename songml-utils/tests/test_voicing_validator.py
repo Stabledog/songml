@@ -50,10 +50,10 @@ def test_unknown_root():
 def test_validate_table():
     """Test bulk validation of voicing table."""
     table = {
-        "C": ("C", [0, 4, 7]),
-        "Cmaj7": ("C", [0, 4, 7, 11]),
-        "Dm": ("D", [0, 3, 7]),
-        "BadChord": ("C", [0, 1, 2]),  # Invalid intervals
+        "C": ("C", [0, 4, 7], "test.tsv", 1),
+        "Cmaj7": ("C", [0, 4, 7, 11], "test.tsv", 2),
+        "Dm": ("D", [0, 3, 7], "test.tsv", 3),
+        "BadChord": ("C", [0, 1, 2], "test.tsv", 4),  # Invalid intervals
     }
     
     warnings = validate_voicing_table(table)
