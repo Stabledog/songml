@@ -9,6 +9,8 @@ import shutil
 import sys
 from typing import Dict, Tuple
 
+from .formatter import format_songml
+
 
 def parse_key(key_input: str) -> Tuple[str, bool]:
     """Parse key input like 'C', 'F#min', 'Dbmin' into (root, is_minor).
@@ -179,6 +181,9 @@ def create_project(song_name: str, key_input: str) -> None:
     content = content.replace('{{vi}}', chords['vi'])
     content = content.replace('{{IV}}', chords['IV'])
     content = content.replace('{{V}}', chords['V'])
+    
+    # Format the content using the formatter
+    content = format_songml(content)
     
     # Create project directory
     os.makedirs(sanitized_name)
