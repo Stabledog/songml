@@ -79,7 +79,7 @@ Time: 4/4
 |      0      |   1   |  2    |   3        |
 | ...;Fmaj7   | G7    | Am    | Bbmaj7.... |
 
-[Verse 1 - 8 bars]
+[Verse 1 - 4 bars]
 | F..  F9/A  Abdim7/B | Am7/E                                | Bb6  Dm7/A | Gm  C7     |
 | You've got a way    | I just knew how to follow but it was | good       | The light  |
 ```
@@ -97,12 +97,12 @@ Time: 4/4
 
 ### Key Components
 
-1. **Parser** (`songml_utils/parser.py`): Parses SongML text into AST
+1. **Parser** (`songml-utils/src/songml_utils/parser.py`): Parses SongML text into AST
 2. **AST** (see `docs/songml-ast.md`): Document → Sections → Bars → ChordTokens
-3. **Formatter** (`songml_utils/formatter.py`): Reconstructs clean SongML from AST
-4. **MIDI Exporter** (`songml_utils/midi_exporter.py`): Converts AST to playable MIDI files
-5. **Validator** (`songml_utils/validate.py`): Checks structure and semantics (warns, doesn't reject)
-6. **Chord Voicings** (`songml_utils/chord_voicings.py` + `data/chord_voicings.tsv`): Maps chord symbols to MIDI notes
+3. **Formatter** (`songml-utils/src/songml_utils/formatter.py`): Reconstructs clean SongML from AST
+4. **MIDI Exporter** (`songml-utils/src/songml_utils/midi_exporter.py`): Converts AST to playable MIDI files
+5. **Validator** (`songml-utils/src/songml_utils/validate.py`): Checks structure and semantics (warns, doesn't reject)
+6. **Chord Voicings** (`songml-utils/src/songml_utils/chord_voicings.py` + `songml-utils/src/songml_utils/data/chord_voicings.tsv`): Maps chord symbols to MIDI notes
 
 ### CLI Tools
 
