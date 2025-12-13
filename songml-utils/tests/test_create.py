@@ -169,10 +169,11 @@ class TestCreateProject:
             
             assert 'Title: Test Song' in content
             assert 'Key: C' in content
-            assert '| C |' in content  # I chord
-            assert '| Am |' in content  # vi chord
-            assert '| F |' in content  # IV chord
-            assert '| G |' in content  # V chord
+            # Check that chords are present (formatted with padding)
+            assert '| C ' in content  # I chord (with padding)
+            assert '| Am ' in content  # vi chord (with padding)
+            assert '| F ' in content  # IV chord (with padding)
+            assert '| G ' in content  # V chord (with padding)
         finally:
             self.tearDown()
     
@@ -191,10 +192,55 @@ class TestCreateProject:
             
             assert 'Title: Sad Song' in content
             assert 'Key: Amin' in content
-            assert '| Am |' in content  # i chord
-            assert '| F |' in content   # bVI chord
-            assert '| Dm |' in content  # iv chord
-            assert '| Em |' in content  # v chord
+            # Check that chords are present (formatted with padding)
+            assert '| Am ' in content  # i chord (with padding)
+            assert '| F ' in content   # bVI chord (with padding)
+            assert '| Dm ' in content  # iv chord (with padding)
+            assert '| Em ' in content  # v chord (with padding)
+        finally:
+            self.tearDown()
+    
+    def test_output_is_formatted(self):
+        """Test that created file is formatted with aligned bars."""
+        self.setUp()
+        try:
+            create_project('Format Test', 'C')
+            
+            songml_path = os.path.join('format-test', 'format-test.songml')
+            with open(songml_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Check that bars are aligned (formatter pads to make columns align)
+            lines = content.split('\n')
+            
+            # Find lines with bar markers
+            bar_lines = [line for line in lines if '|' in line and line.strip().startswith('|')]
+            
+            # At least some bar lines should exist
+            assert len(bar_lines) > 0
+            
+            # Check that within a section, bar positions align vertically
+            # For example, in the Intro section:
+            # |   1   |   2   |   3   |   4   |
+            # | C     | Am    | F     | G     |
+            # The | markers should be at the same positions
+            
+            intro_section_start = content.find('[Intro - 4 bars]')
+            assert intro_section_start != -1
+            
+            # Get lines after the intro header, filtering for bar lines only
+            intro_content = content[intro_section_start:].split('\n')
+            intro_bar_lines = [line for line in intro_content if line.strip().startswith('|')]
+            
+            # Check that we have at least 2 bar lines to compare
+            if len(intro_bar_lines) >= 2:
+                # Compare the first two bar lines (typically bar numbers and chords)
+                line1_bars = [i for i, c in enumerate(intro_bar_lines[0]) if c == '|']
+                line2_bars = [i for i, c in enumerate(intro_bar_lines[1]) if c == '|']
+                
+                # If both lines have bars, they should align
+                if line1_bars and line2_bars:
+                    assert line1_bars == line2_bars, "Bar markers should be vertically aligned"
         finally:
             self.tearDown()
     
