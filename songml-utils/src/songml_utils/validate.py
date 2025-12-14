@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import TypeAlias
 
 from .ast import ChordToken, ParseError, Property, Section
 from .chord_voicings import get_voicing_table
 from .parser import parse_songml
 from .voicing_validator import validate_voicing_table
+
+ChordLocation: TypeAlias = tuple[str, int]
+ChordLocations: TypeAlias = dict[str, ChordLocation]
 
 
 def main() -> None:
@@ -63,13 +67,13 @@ def main() -> None:
         sys.exit(1)
 
 
-def _extract_chord_symbols(doc, filename: str) -> dict[str, tuple[str, int]]:
+def _extract_chord_symbols(doc, filename: str) -> ChordLocations:
     """Extract all unique chord symbols from the parsed document with their first occurrence location.
     
     Returns:
         Dict mapping chord_symbol -> (source_file, line_number)
     """
-    symbols = {}
+    symbols: ChordLocations = {}
     
     for item in doc.items:
         if isinstance(item, Section):
@@ -84,7 +88,7 @@ def _extract_chord_symbols(doc, filename: str) -> dict[str, tuple[str, int]]:
     return symbols
 
 
-def _validate_chord_voicings(chord_symbols_with_loc: dict[str, tuple[str, int]], validate_all: bool = False) -> list[str]:
+def _validate_chord_voicings(chord_symbols_with_loc: ChordLocations, validate_all: bool = False) -> list[str]:
     """Validate chord voicings for symbols used in the document (or all if validate_all=True).
     
     Args:

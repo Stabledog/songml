@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["export_midi"]
 
 import sys
-from typing import Final
+from typing import Final, TypeAlias
 
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
@@ -18,6 +18,9 @@ DEFAULT_VELOCITY: Final[int] = 64
 DEFAULT_CHANNEL: Final[int] = 0
 DEFAULT_ROOT_OCTAVE: Final[int] = 3
 MICROSECONDS_PER_MINUTE: Final[int] = 60_000_000
+
+MidiEvent: TypeAlias = tuple[int, str, list[int]]
+MidiEvents: TypeAlias = list[MidiEvent]
 
 
 def export_midi(doc: Document, output_path: str, voicings_path: str | None = None) -> None:
@@ -85,7 +88,7 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
         track.append(MetaMessage('key_signature', key='C'))
     
     # Build timeline: collect all note on/off events with absolute ticks
-    events: list[tuple[int, str, list[int]]] = []
+    events: MidiEvents = []
     
     # Track absolute bar position across all sections
     absolute_bar_number = 0
