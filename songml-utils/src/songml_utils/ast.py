@@ -10,11 +10,12 @@ __all__ = [
     "TextBlock",
     "Document",
     "ParseError",
+    "DocumentItem",
 ]
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Self
+from typing import Self, TypeAlias
 
 
 @dataclass(slots=True, frozen=True)
@@ -90,10 +91,13 @@ class TextBlock:
         return {"type": "TextBlock", **asdict(self)}
 
 
+DocumentItem: TypeAlias = TextBlock | Property | Section
+
+
 @dataclass
 class Document:
     """Top-level document containing sequence of text blocks, properties, and sections."""
-    items: list[TextBlock | Property | Section] = field(default_factory=list)
+    items: list[DocumentItem] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)  # Non-fatal issues (e.g., duplicate sections)
     
     def to_dict(self) -> dict[str, object]:

@@ -7,10 +7,10 @@ Each line: ChordSymbol<TAB>Root<TAB>Offset1,Offset2,...
 
 from __future__ import annotations
 
-__all__ = ["get_chord_notes", "load_voicing_table", "reload_voicing_table", "get_voicing_table", "NOTE_TO_MIDI"]
+__all__ = ["get_chord_notes", "load_voicing_table", "reload_voicing_table", "get_voicing_table", "NOTE_TO_MIDI", "VoicingEntry", "VoicingTable"]
 
 import os
-from typing import Final
+from typing import Final, TypeAlias
 
 # Map of note names to MIDI numbers at octave 0
 NOTE_TO_MIDI: Final[dict[str, int]] = {
@@ -19,8 +19,11 @@ NOTE_TO_MIDI: Final[dict[str, int]] = {
     'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
 }
 
+VoicingEntry: TypeAlias = tuple[str, list[int], str, int]
+VoicingTable: TypeAlias = dict[str, VoicingEntry]
 
-def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list[int], str, int]]:
+
+def load_voicing_table(tsv_path: str | None = None) -> VoicingTable:
     """
     Load chord voicing table from TSV file.
     
@@ -80,7 +83,7 @@ def load_voicing_table(tsv_path: str | None = None) -> dict[str, tuple[str, list
 
 
 # Global voicing table - loaded once at module import, can be reloaded
-_VOICING_TABLE: dict[str, tuple[str, list[int], str, int]] = load_voicing_table()
+_VOICING_TABLE: VoicingTable = load_voicing_table()
 
 
 def reload_voicing_table(tsv_path: str | None = None) -> None:
@@ -94,7 +97,7 @@ def reload_voicing_table(tsv_path: str | None = None) -> None:
     _VOICING_TABLE = load_voicing_table(tsv_path)
 
 
-def get_voicing_table() -> dict[str, tuple[str, list[int], str, int]]:
+def get_voicing_table() -> VoicingTable:
     """
     Get the currently loaded voicing table.
     

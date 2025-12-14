@@ -11,6 +11,8 @@ __all__ = ["validate_chord_voicing", "validate_voicing_table"]
 import re
 from typing import Final
 
+from .chord_voicings import VoicingTable
+
 try:
     from pychord import Chord
     PYCHORD_AVAILABLE = True
@@ -121,7 +123,7 @@ def validate_chord_voicing(
 
 
 def validate_voicing_table(
-    table: dict[str, tuple[str, list[int], str, int]]
+    table: VoicingTable
 ) -> list[str]:
     """
     Validate all entries in a chord voicing table.

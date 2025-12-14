@@ -17,6 +17,7 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass
+from typing import TypeAlias
 
 from .parser import parse_songml
 from .ast import ParseError, Section
@@ -43,6 +44,10 @@ class TextBlock:
     """Non-musical content preserved as-is."""
     content: list[str]  # Lines of text
     line_numbers: list[int]
+
+
+BarGroupOrTextBlock: TypeAlias = BarGroup | TextBlock
+BarRenumberingMap: TypeAlias = dict[int, list[int]]
 
 
 def detect_bar_line(line: str) -> bool:
@@ -142,7 +147,7 @@ def align_bar_group(bar_group: BarGroup, column_widths: list[int]) -> list[str]:
     return aligned_lines
 
 
-def group_bar_lines(lines: list[str]) -> list[BarGroup | TextBlock]:
+def group_bar_lines(lines: list[str]) -> list[BarGroupOrTextBlock]:
     """Identify consecutive bar lines vs. other content.
     
     Args:
@@ -274,13 +279,13 @@ def _fix_bar_numbers_in_ast(doc) -> None:
             expected_bar += 1
 
 
-def _extract_bar_renumbering(doc) -> dict[int, list[int]]:
+def _extract_bar_renumbering(doc) -> BarRenumberingMap:
     """Extract the corrected bar numbers from AST, organized by line number.
     
     Returns:
         Dict mapping line_number -> list of corrected bar numbers for that line
     """
-    bar_map = {}
+    bar_map: BarRenumberingMap = {}
     
     for item in doc.items:
         if not isinstance(item, Section):
@@ -301,7 +306,7 @@ def _extract_bar_renumbering(doc) -> dict[int, list[int]]:
     return bar_map
 
 
-def _apply_bar_renumbering(bar_group: BarGroup, bar_map: dict[int, list[int]]) -> BarGroup:
+def _apply_bar_renumbering(bar_group: BarGroup, bar_map: BarRenumberingMap) -> BarGroup:
     """Apply corrected bar numbers to a bar group.
     
     Args:
