@@ -30,6 +30,10 @@ wheels/
 .coverage.*
 htmlcov/
 *.cover
+coverage.xml
+
+# Code quality
+.ruff_cache/
 
 # IDEs
 .vscode/

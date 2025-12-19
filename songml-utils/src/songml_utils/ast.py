@@ -15,16 +15,17 @@ __all__ = [
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Self, TypeAlias
+from typing import Self
 
 
 @dataclass(slots=True, frozen=True)
 class ChordToken:
     """A single chord symbol with its timing information within a bar."""
+
     text: str  # Opaque chord text (e.g., "C", "Dm7", "F9/A", "/Bb")
     start_beat: float  # Position within the bar (0-based)
     duration_beats: float  # Duration in beats
-    
+
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {"type": "ChordToken", **asdict(self)}
@@ -33,11 +34,12 @@ class ChordToken:
 @dataclass(slots=True)
 class Bar:
     """A single bar containing chords and optional lyrics."""
+
     number: int  # Bar number (sequential within section)
     chords: list[ChordToken] = field(default_factory=list)  # Empty for synthesized bars
     lyrics: str | None = None  # Lyric text for this bar
     line_number: int = 0  # Source line number for error reporting
-    
+
     def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
@@ -52,11 +54,12 @@ class Bar:
 @dataclass(slots=True)
 class Section:
     """A named section with a declared bar count and bar sequence."""
+
     name: str  # Section name (e.g., "Verse 1", "Chorus")
     bar_count: int  # Declared number of bars
     bars: list[Bar] = field(default_factory=list)  # Flat sequence of bars
     line_number: int = 0  # Source line number for error reporting
-    
+
     def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
@@ -71,10 +74,11 @@ class Section:
 @dataclass(slots=True, frozen=True)
 class Property:
     """A property declaration (e.g., Key: Cmaj, Tempo: 120)."""
+
     name: str  # Property name (e.g., "Key", "Tempo", "Title")
     value: str  # Property value as text
     line_number: int = 0  # Source line number for error reporting
-    
+
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {"type": "Property", **asdict(self)}
@@ -83,23 +87,25 @@ class Property:
 @dataclass(slots=True)
 class TextBlock:
     """A block of free-form text, comments, or unrecognized content."""
+
     lines: list[str] = field(default_factory=list)  # Lines of text
     line_number: int = 0  # Starting line number
-    
+
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {"type": "TextBlock", **asdict(self)}
 
 
-DocumentItem: TypeAlias = TextBlock | Property | Section
+type DocumentItem = TextBlock | Property | Section
 
 
 @dataclass
 class Document:
     """Top-level document containing sequence of text blocks, properties, and sections."""
+
     items: list[DocumentItem] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)  # Non-fatal issues (e.g., duplicate sections)
-    
+
     def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
         return {
@@ -108,11 +114,11 @@ class Document:
             "items": [item.to_dict() for item in self.items],
             "warnings": self.warnings,
         }
-    
+
     def to_json(self, indent: int = 2) -> str:
         """Serialize to JSON string."""
         return json.dumps(self.to_dict(), indent=indent)
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> Self:
         """Deserialize from dict. Future hook for loading AST JSON."""
@@ -123,12 +129,12 @@ class Document:
 
 class ParseError(Exception):
     """Exception raised when parser encounters a structural error.
-    
+
     Attributes:
         message: The error message describing the issue
         line_number: The line number where the error occurred
     """
-    
+
     def __init__(self, message: str, line_number: int) -> None:
         self.message = message
         self.line_number = line_number

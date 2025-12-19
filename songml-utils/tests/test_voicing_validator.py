@@ -55,9 +55,9 @@ def test_validate_table():
         "Dm": ("D", [0, 3, 7], "test.tsv", 3),
         "BadChord": ("C", [0, 1, 2], "test.tsv", 4),  # Invalid intervals
     }
-    
+
     warnings = validate_voicing_table(table)
-    
+
     # Should have at least one warning for BadChord
     assert len(warnings) > 0
     assert any("BadChord" in w for w in warnings)

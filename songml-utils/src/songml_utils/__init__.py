@@ -3,10 +3,10 @@
 __version__ = "0.1.0"
 
 # Core exports
-from .parser import parse_songml
+from .abc_exporter import export_abc, to_abc_string
 from .formatter import format_songml
 from .midi_exporter import export_midi
-from .abc_exporter import to_abc_string, export_abc
+from .parser import parse_songml
 
 __all__ = [
     "parse_songml",

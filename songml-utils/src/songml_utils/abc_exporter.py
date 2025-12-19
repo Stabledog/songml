@@ -4,73 +4,69 @@ from __future__ import annotations
 
 __all__ = ["to_abc_string", "export_abc"]
 
-import sys
-from typing import TypeAlias
 
-from .ast import Document, Property, Section, Bar, ChordToken
+from .ast import Bar, Document, Property, Section
 
 # ABC format constants
 DEFAULT_REFERENCE_NUMBER: int = 1
 
-PropertyDict: TypeAlias = dict[str, str]
+type PropertyDict = dict[str, str]
 
 
 def to_abc_string(
-    doc: Document,
-    unit_note_length: str | None = None,
-    chord_style: str = 'chordline'
+    doc: Document, unit_note_length: str | None = None, chord_style: str = "chordline"
 ) -> str:
     """
     Convert SongML Document to ABC notation string.
-    
+
     Args:
         doc: Parsed SongML document containing sections with bars and chords
-        unit_note_length: Override computed L: value (e.g., "1/16"). If None, 
+        unit_note_length: Override computed L: value (e.g., "1/16"). If None,
                          computed as 1/(denominator*2) from time signature.
         chord_style: Chord rendering style; currently only 'chordline' supported
-        
+
     Returns:
         ABC notation as a string
-        
+
     Raises:
         ValueError: If document has no sections or invalid time signature
     """
-    if chord_style != 'chordline':
+    if chord_style != "chordline":
         raise ValueError(f"Unsupported chord_style: {chord_style}. Only 'chordline' is supported.")
-    
+
     # Extract properties
     props = _extract_properties(doc)
-    
+
     # Parse time signature
-    numerator, denominator = _parse_time_signature(props['Time'])
+    numerator, denominator = _parse_time_signature(props["Time"])
     beats_per_bar = numerator
-    
+
     # Compute or use provided unit note length
     if unit_note_length is None:
         unit_note_length = f"1/{denominator * 2}"
-    
+
     # Get sections with bars
     sections = [item for item in doc.items if isinstance(item, Section)]
     if not sections:
         raise ValueError("No musical content to export (no sections found)")
-    
+
     # Build ABC output
     lines: list[str] = []
-    
+
     # Add headers
     lines.extend(_format_abc_headers(props, unit_note_length, numerator, denominator))
     lines.append("")  # Blank line after headers
-    
+
     # Add each section
     for section in sections:
         # Add part marker
         lines.append(f"P:{section.name}")
-        
+
         # Add bars with chords and lyrics
         section_lines = _format_section(section, beats_per_bar, denominator)
         lines.extend(section_lines)
         lines.append("")  # Blank line between sections
-    
+
     return "\n".join(lines)
 
 
@@ -78,11 +74,11 @@ def export_abc(
     doc: Document,
     output_path: str,
     unit_note_length: str | None = None,
-    chord_style: str = 'chordline'
+    chord_style: str = "chordline",
 ) -> None:
     """
     Export SongML Document to ABC file.
-    
+
     Args:
         doc: Parsed SongML document
         output_path: Path to write the .abc file
@@ -90,33 +86,25 @@ def export_abc(
         chord_style: Chord rendering style ('chordline' only)
     """
     abc_text = to_abc_string(doc, unit_note_length, chord_style)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(abc_text)
 
 
 def _extract_properties(doc: Document) -> PropertyDict:
     """Extract properties from document with defaults."""
-    defaults = {
-        'Title': 'Untitled',
-        'Key': 'C',
-        'Tempo': '120',
-        'Time': '4/4'
-    }
-    
+    defaults = {"Title": "Untitled", "Key": "C", "Tempo": "120", "Time": "4/4"}
+
     props = defaults.copy()
     for item in doc.items:
         if isinstance(item, Property):
             props[item.name] = item.value
-    
+
     return props
 
 
 def _format_abc_headers(
-    props: PropertyDict,
-    unit_note_length: str,
-    numerator: int,
-    denominator: int
+    props: PropertyDict, unit_note_length: str, numerator: int, denominator: int
 ) -> list[str]:
     """Format ABC file headers."""
     lines = [
@@ -125,7 +113,7 @@ def _format_abc_headers(
         f"M: {numerator}/{denominator}",
         f"L: {unit_note_length}",
         f"Q: 1/4={props['Tempo']}",
-        f"K: {_normalize_key(props['Key'])}"
+        f"K: {_normalize_key(props['Key'])}",
     ]
     return lines
 
@@ -133,7 +121,7 @@ def _format_abc_headers(
 def _normalize_key(key_str: str) -> str:
     """
     Normalize key string to ABC format.
-    
+
     Examples:
         "Cmaj" -> "C"
         "Fmaj" -> "F"
@@ -141,81 +129,81 @@ def _normalize_key(key_str: str) -> str:
         "Dmin" -> "Dm"
     """
     key_str = key_str.strip()
-    
+
     # Handle major keys (check 'major' first since it contains 'maj')
-    if ' major' in key_str.lower():
+    if " major" in key_str.lower():
         # Extract root before ' major'
         parts = key_str.split()
         return parts[0].strip()
-    if key_str.endswith('maj'):
+    if key_str.endswith("maj"):
         root = key_str[:-3].strip()
         return root
-    
+
     # Handle minor keys (check 'minor' first since it contains 'min')
-    if ' minor' in key_str.lower():
+    if " minor" in key_str.lower():
         # Extract root before ' minor' and add 'm'
         parts = key_str.split()
         root = parts[0].strip()
-        if not root.endswith('m'):
-            return root + 'm'
+        if not root.endswith("m"):
+            return root + "m"
         return root
-    if key_str.endswith('min'):
+    if key_str.endswith("min"):
         root = key_str[:-3].strip()
-        if not root.endswith('m'):
-            return root + 'm'
+        if not root.endswith("m"):
+            return root + "m"
         return root
-    
+
     # If ends with 'm' (like "Dm"), keep as-is
-    if key_str.endswith('m') and len(key_str) > 1 and key_str[-2].isalpha():
+    if key_str.endswith("m") and len(key_str) > 1 and key_str[-2].isalpha():
         return key_str
-    
+
     # Default: assume major, return root
     return key_str
 
 
 def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     """Parse time signature string like '4/4' into (numerator, denominator)."""
-    parts = time_sig.split('/')
+    parts = time_sig.split("/")
     if len(parts) != 2:
-        raise ValueError(f"Invalid time signature format: \"{time_sig}\"")
+        raise ValueError(f'Invalid time signature format: "{time_sig}"')
     try:
         numerator = int(parts[0])
         denominator = int(parts[1])
-    except ValueError:
-        raise ValueError(f"Invalid time signature values: \"{time_sig}\"")
+    except ValueError as err:
+        raise ValueError(f'Invalid time signature values: "{time_sig}"') from err
     return numerator, denominator
 
 
 def _format_section(section: Section, beats_per_bar: int, denominator: int) -> list[str]:
     """Format a section with bars, chords, and lyrics."""
     lines: list[str] = []
-    
+
     # Group bars into lines (e.g., 4 bars per line for readability)
     bars_per_line = 4
-    
+
     for i in range(0, len(section.bars), bars_per_line):
-        bar_group = section.bars[i:i + bars_per_line]
-        
+        bar_group = section.bars[i : i + bars_per_line]
+
         # Format chord line for this group
         chord_line = _format_bar_group_chords(bar_group, beats_per_bar, denominator)
         lines.append(chord_line)
-        
+
         # Format lyrics line if any bar in group has lyrics
         lyrics_line = _format_bar_group_lyrics(bar_group, beats_per_bar, denominator)
         if lyrics_line:
             lines.append(lyrics_line)
-    
+
     return lines
 
 
 def _format_bar_group_chords(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:
     """Format a group of bars as ABC chord notation."""
     bar_strs: list[str] = []
-    
+
     for bar in bars:
         bar_str = _format_bar_chords(bar, beats_per_bar, denominator)
         bar_strs.append(bar_str)
-    
+
     # Join bars with bar lines
     return "| " + " | ".join(bar_strs) + " |"
 
@@ -226,33 +214,33 @@ def _format_bar_chords(bar: Bar, beats_per_bar: int, denominator: int) -> str:
         # Empty bar: fill with rests
         total_units = _beats_to_abc_units(beats_per_bar, denominator)
         return f"z{total_units}"
-    
+
     # Build ABC elements for each chord
     elements: list[str] = []
-    
+
     for chord_token in bar.chords:
         # Chord annotation
         chord_annotation = f'"{chord_token.text}"'
-        
+
         # Duration in ABC units
         duration_units = _beats_to_abc_units(chord_token.duration_beats, denominator)
-        
+
         # Rest with chord annotation
         # Format: "C"z4 means chord C annotation above a rest lasting 4 units
         elements.append(f"{chord_annotation}z{duration_units}")
-    
+
     return " ".join(elements)
 
 
 def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:
     """Format lyrics line for a group of bars."""
     lyrics_parts: list[str] = []
-    
+
     for bar in bars:
         if bar.lyrics:
             # Split lyrics into words/syllables
             words = bar.lyrics.split()
-            
+
             # If bar has multiple chords, distribute lyrics across them
             if bar.chords:
                 # Simple strategy: assign words to chords evenly
@@ -269,26 +257,26 @@ def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: i
         else:
             # No lyrics for this bar: use underscore for continuation
             lyrics_parts.append("_")
-    
+
     if not any(part != "_" for part in lyrics_parts):
         # All underscores: no actual lyrics
         return ""
-    
+
     return "w: " + " ".join(lyrics_parts)
 
 
 def _beats_to_abc_units(beats: float, denominator: int) -> int:
     """
     Convert SongML beats to ABC unit count.
-    
+
     Based on L: 1/(denominator*2), where:
     - 1 beat = denominator/2 units
     - 0.5 beat = denominator/4 units
-    
+
     For 4/4 time (denominator=4, L:1/8):
         1 beat = 2 units
         0.5 beat = 1 unit
-    
+
     For 6/8 time (denominator=8, L:1/16):
         1 beat = 4 units
         0.5 beat = 2 units
@@ -303,7 +291,7 @@ def _beats_to_abc_units(beats: float, denominator: int) -> int:
 if __name__ == "__main__":
     # Simple test
     from .parser import parse_songml
-    
+
     test_songml = """
 Title: Test Song
 Key: Cmaj
@@ -315,7 +303,7 @@ Time: 4/4
 | C | F G |
 | Hello world |
 """
-    
+
     doc = parse_songml(test_songml)
     abc_text = to_abc_string(doc)
     print(abc_text)

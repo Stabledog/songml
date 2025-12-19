@@ -1,8 +1,9 @@
 """Tests for SongML parser."""
 
 import pytest
+
+from songml_utils.ast import ParseError, Property, Section, TextBlock
 from songml_utils.parser import parse_songml
-from songml_utils.ast import ParseError, Property, Section, TextBlock, Bar, ChordToken
 
 
 def test_property_defaults():
@@ -13,7 +14,7 @@ def test_property_defaults():
 | C |
 """
     doc = parse_songml(content)
-    
+
     # Properties should have defaults even if not in document
     sections = [item for item in doc.items if isinstance(item, Section)]
     assert len(sections) == 1
@@ -39,13 +40,13 @@ Key: Gmaj
 | G | D |
 """
     doc = parse_songml(content)
-    
+
     # Check properties
     props = [item for item in doc.items if isinstance(item, Property)]
     assert len(props) == 5
-    assert props[0].name == 'Title'
-    assert props[0].value == 'Test Song'
-    
+    assert props[0].name == "Title"
+    assert props[0].value == "Test Song"
+
     # Check sections
     sections = [item for item in doc.items if isinstance(item, Section)]
     assert len(sections) == 2
@@ -59,10 +60,10 @@ def test_section_header_parsing():
 | C | F | G | C |
 """
     doc = parse_songml(content)
-    
+
     sections = [item for item in doc.items if isinstance(item, Section)]
     assert len(sections) == 1
-    assert sections[0].name == 'Intro'
+    assert sections[0].name == "Intro"
     assert sections[0].bar_count == 4
     assert len(sections[0].bars) == 4
 
@@ -90,7 +91,7 @@ def test_invalid_section_headers():
         ("[Bridge - 8]", "section with number but missing 'bars' keyword"),
         ("[Outro - bars]", "section with 'bars' but no number"),
     ]
-    
+
     for header, description in test_cases:
         content = f"""
 Title: Test Song
@@ -99,7 +100,7 @@ Title: Test Song
 """
         with pytest.raises(ParseError) as exc_info:
             parse_songml(content)
-        
+
         error_msg = str(exc_info.value)
         assert "must declare bar count" in error_msg, f"Failed for {description}: {header}"
         assert "[Section Name - N bars]" in error_msg, f"Failed for {description}: {header}"
@@ -113,7 +114,7 @@ def test_bar_number_detection_and_validation():
 | C | F | G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert section.bars[0].number == 0
     assert section.bars[1].number == 1
@@ -128,7 +129,7 @@ def test_bar_number_auto_increment():
 | C | F | G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert section.bars[0].number == 0
     assert section.bars[1].number == 1
@@ -144,7 +145,7 @@ def test_bar_number_gap_error():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'gap' in str(exc_info.value).lower()
+    assert "gap" in str(exc_info.value).lower()
 
 
 def test_bar_number_first_cell_required():
@@ -156,7 +157,7 @@ def test_bar_number_first_cell_required():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'first cell' in str(exc_info.value).lower()
+    assert "first cell" in str(exc_info.value).lower()
 
 
 def test_delimiter_count_matching():
@@ -168,7 +169,7 @@ def test_delimiter_count_matching():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'chord row has' in str(exc_info.value).lower()
+    assert "chord row has" in str(exc_info.value).lower()
 
 
 def test_lyrics_optional():
@@ -179,7 +180,7 @@ def test_lyrics_optional():
 | C | F |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert section.bars[0].lyrics is None
     assert section.bars[1].lyrics is None
@@ -194,10 +195,10 @@ def test_lyrics_present():
 | Hello | world |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
-    assert section.bars[0].lyrics == 'Hello'
-    assert section.bars[1].lyrics == 'world'
+    assert section.bars[0].lyrics == "Hello"
+    assert section.bars[1].lyrics == "world"
 
 
 def test_explicit_timing_dots():
@@ -208,14 +209,14 @@ def test_explicit_timing_dots():
 | C.. F.. |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
     assert len(chords) == 2
-    assert chords[0].text == 'C'
+    assert chords[0].text == "C"
     assert chords[0].start_beat == 0.0
     assert chords[0].duration_beats == 2.0
-    assert chords[1].text == 'F'
+    assert chords[1].text == "F"
     assert chords[1].start_beat == 2.0
     assert chords[1].duration_beats == 2.0
 
@@ -228,11 +229,11 @@ def test_half_beat_timing_semicolon():
 | ...;F |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
     assert len(chords) == 1
-    assert chords[0].text == 'F'
+    assert chords[0].text == "F"
     assert chords[0].start_beat == 3.5
     assert chords[0].duration_beats == 0.5
 
@@ -245,12 +246,12 @@ def test_half_beat_on_beat_one():
 | ;F G.. |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
-    assert chords[0].text == 'F'
+    assert chords[0].text == "F"
     assert chords[0].start_beat == 0.5
-    assert chords[1].text == 'G'
+    assert chords[1].text == "G"
     assert chords[1].start_beat == 1.5
 
 
@@ -262,15 +263,15 @@ def test_implicit_timing_last_chord_fills():
 | C F G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
     assert len(chords) == 3
-    assert chords[0].text == 'C'
+    assert chords[0].text == "C"
     assert chords[0].duration_beats == 1.0
-    assert chords[1].text == 'F'
+    assert chords[1].text == "F"
     assert chords[1].duration_beats == 1.0
-    assert chords[2].text == 'G'
+    assert chords[2].text == "G"
     assert chords[2].duration_beats == 2.0  # Fills remaining
 
 
@@ -284,7 +285,7 @@ Time: 3/4
 | C F G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
     assert chords[0].duration_beats == 1.0
@@ -302,7 +303,7 @@ Time: 6/8
 | C F G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
     assert chords[0].duration_beats == 1.0
@@ -318,7 +319,7 @@ def test_empty_bars_in_chords():
 | C | |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert len(section.bars[0].chords) == 1
     assert len(section.bars[1].chords) == 0
@@ -332,7 +333,7 @@ def test_bar_synthesis():
 | C | F | G |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert len(section.bars) == 8
     # First 3 have chords
@@ -354,7 +355,7 @@ def test_too_many_bars_error():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'declares 2 bars but has 3' in str(exc_info.value)
+    assert "declares 2 bars but has 3" in str(exc_info.value)
 
 
 def test_empty_section_error():
@@ -368,7 +369,7 @@ def test_empty_section_error():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'has no bars' in str(exc_info.value).lower()
+    assert "has no bars" in str(exc_info.value).lower()
 
 
 def test_duplicate_section_warning():
@@ -383,11 +384,11 @@ def test_duplicate_section_warning():
 | G | Am |
 """
     doc = parse_songml(content)
-    
+
     # Should warn about duplicate section name
     assert len(doc.warnings) == 1
-    assert 'Duplicate section name' in doc.warnings[0]
-    assert 'Verse' in doc.warnings[0]
+    assert "Duplicate section name" in doc.warnings[0]
+    assert "Verse" in doc.warnings[0]
 
 
 def test_invalid_time_signature_denominator():
@@ -401,7 +402,7 @@ Time: 5/7
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'denominator must be 4 or 8' in str(exc_info.value).lower()
+    assert "denominator must be 4 or 8" in str(exc_info.value).lower()
 
 
 def test_beat_overflow_error():
@@ -413,7 +414,7 @@ def test_beat_overflow_error():
 """
     with pytest.raises(ParseError) as exc_info:
         parse_songml(content)
-    assert 'overflow' in str(exc_info.value).lower()
+    assert "overflow" in str(exc_info.value).lower()
 
 
 def test_multi_group_flattening():
@@ -429,13 +430,13 @@ def test_multi_group_flattening():
 | shells | by | shore |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     assert len(section.bars) == 6
     assert section.bars[0].number == 0
     assert section.bars[3].number == 3
-    assert section.bars[0].lyrics == 'She'
-    assert section.bars[3].lyrics == 'shells'
+    assert section.bars[0].lyrics == "She"
+    assert section.bars[3].lyrics == "shells"
 
 
 def test_property_terminates_section():
@@ -452,11 +453,11 @@ Key: Gmaj
 | G | D |
 """
     doc = parse_songml(content)
-    
+
     sections = [item for item in doc.items if isinstance(item, Section)]
     assert len(sections) == 2
     props = [item for item in doc.items if isinstance(item, Property)]
-    assert any(p.name == 'Key' and p.value == 'Gmaj' for p in props)
+    assert any(p.name == "Key" and p.value == "Gmaj" for p in props)
 
 
 def test_text_blocks():
@@ -474,7 +475,7 @@ More text here.
 | C |
 """
     doc = parse_songml(content)
-    
+
     text_blocks = [item for item in doc.items if isinstance(item, TextBlock)]
     assert len(text_blocks) >= 1
 
@@ -487,44 +488,47 @@ def test_opaque_chord_text():
 | XYZ123 /F# Cmaj9#11 |
 """
     doc = parse_songml(content)
-    
+
     section = [item for item in doc.items if isinstance(item, Section)][0]
     chords = section.bars[0].chords
-    assert chords[0].text == 'XYZ123'
-    assert chords[1].text == '/F#'
-    assert chords[2].text == 'Cmaj9#11'
+    assert chords[0].text == "XYZ123"
+    assert chords[1].text == "/F#"
+    assert chords[2].text == "Cmaj9#11"
 
 
 def test_youve_got_a_way_sample():
     """Test parsing the real sample file youve-got-a-way.songml."""
     import os
-    sample_path = os.path.join(os.path.dirname(__file__), '..', '..', 'samples', 'youve-got-a-way.songml')
-    
+
+    sample_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "samples", "youve-got-a-way.songml"
+    )
+
     if not os.path.exists(sample_path):
         pytest.skip(f"Sample file not found: {sample_path}")
-    
-    with open(sample_path, 'r', encoding='utf-8') as f:
+
+    with open(sample_path, encoding="utf-8") as f:
         content = f.read()
-    
+
     doc = parse_songml(content)
-    
+
     # Check basic structure
     sections = [item for item in doc.items if isinstance(item, Section)]
     # All sections now have bar counts and should be parsed correctly
     assert len(sections) == 6  # Intro, Verse 1, Verse 2, Chorus, Bridge, Return
-    
+
     props = [item for item in doc.items if isinstance(item, Property)]
-    title_props = [p for p in props if p.name == 'Title']
+    title_props = [p for p in props if p.name == "Title"]
     assert len(title_props) == 1
-    assert 'way' in title_props[0].value.lower()
-    
+    assert "way" in title_props[0].value.lower()
+
     # Check first section (Intro, which now has proper bar count)
     intro = sections[0]
-    assert intro.name == 'Intro'
+    assert intro.name == "Intro"
     assert intro.bar_count == 5
-    
+
     # Check second section (Verse 1)
     verse1 = sections[1]
-    assert verse1.name == 'Verse 1'
+    assert verse1.name == "Verse 1"
     assert verse1.bar_count == 12
     assert len(verse1.bars) == 12

@@ -8,17 +8,13 @@ import os
 
 def load_completion_script() -> str:
     """Load bash completion script from data file.
-    
+
     Returns:
         Complete bash completion script as string
     """
-    script_path = os.path.join(
-        os.path.dirname(__file__),
-        'data',
-        'bash_completion.sh'
-    )
-    
-    with open(script_path, 'r', encoding='utf-8') as f:
+    script_path = os.path.join(os.path.dirname(__file__), "data", "bash_completion.sh")
+
+    with open(script_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -36,15 +32,15 @@ Or add to ~/.bashrc:
 System-wide installation (requires sudo):
   %(prog)s | sudo tee /etc/bash_completion.d/songml
   # Restart shell or: source /etc/bash_completion.d/songml""",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    
-    args = parser.parse_args()
-    
+
+    parser.parse_args()
+
     # Load and output completion script
     script = load_completion_script()
     print(script)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

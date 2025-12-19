@@ -20,3 +20,36 @@ songml-validate = "songml_utils.validate:main"
 songml-to-midi = "songml_utils.midi_cli:main"
 songml-to-abc = "songml_utils.abc_cli:main"
 songml-bashcompletion = "songml_utils.bashcompletion:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.5.0"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["songml_utils"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--cov=songml_utils",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-report=xml"
+]
