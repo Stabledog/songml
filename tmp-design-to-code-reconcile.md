@@ -9,7 +9,7 @@
 - **Code reality**: Slash chords are fully parsed in `chord_voicings.py:get_chord_notes()`, splitting on `/` and adding bass note programmatically
 - **Status**: ✓ Accurate. Code matches design philosophy and implementation description.
 
-**A2. Timing Marker Semicolon Semantics**  
+**A2. Timing Marker Semicolon Semantics**
 - **Design claim** (songml-syntax.md): "`;` for half-beats" with examples like `...;F` meaning "F on beat 4-and"
 - **Code reality**: `parser.py:_parse_chord_tokens()` correctly implements: prefix dots + optional semicolon = rest, then chord starts
 - **Status**: ✓ Accurate. Implementation matches specification.
@@ -148,7 +148,7 @@ MidiTimeline: TypeAlias = list[MidiEvent]
 - **Usage**: Design docs consistently use "bar", code uses "bar"
 - **Status**: ✓ Consistent
 
-**F2. "Section" vs "Part"**  
+**F2. "Section" vs "Part"**
 - **Usage**: Consistently "section" throughout
 - **Status**: ✓ Consistent
 
@@ -205,7 +205,7 @@ MidiTimeline: TypeAlias = list[MidiEvent]
 **G5. MIDI Export Defaults**
 - **Current design**: Lists defaults but scattered across paragraphs
 - **Improvement**: Add summary table at top of songml-midi-generation.md:
-  
+
   | Parameter | Default | Configurable? |
   |-----------|---------|---------------|
   | PPQ | 480 | No |

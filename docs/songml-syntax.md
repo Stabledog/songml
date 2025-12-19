@@ -82,7 +82,7 @@ Use `|` to mark bars. Numbering bars is optional but helpful:
 **Alignment isn't meaningful.** The parser just looks for:
     `|`: bar delimiter
     `.`: one beat indicator
-    `;`: 1/2 beat indicator 
+    `;`: 1/2 beat indicator
     (A formatting tool can help with alignment for clarity)
 
 
@@ -113,7 +113,7 @@ Use `;` for half-beats:
 | C; D; E.. |          // C on 1, D on 1-and E on 2-4
 ```
 
-**Without timing marks:** Chords split the bar 
+**Without timing marks:** Chords split the bar
 ```
 | C F |                // Each gets 2 beats in 4/4
 | C F G |              // C and F get 1 beat, G gets 2 (last chord fills the frame that's left)
@@ -140,7 +140,7 @@ Write lyrics on a separate line:
 
 ## 7. Key Changes
 
-Set `Key: Gmaj` as a property outside sections to change key. 
+Set `Key: Gmaj` as a property outside sections to change key.
 
 ---
 

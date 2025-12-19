@@ -246,7 +246,7 @@ The exporter provides detailed error messages with context:
 
 **Unknown chord:**
 ```
-✗ Export error: Error at section 'Verse 1', bar 2, beat 0.0: 
+✗ Export error: Error at section 'Verse 1', bar 2, beat 0.0:
   Unknown chord symbol 'Xmaj7' (not in voicing table)
 ```
 
@@ -479,14 +479,14 @@ flowchart LR
     C --> D[formatter.py]
     C --> E[midi_exporter.py]
     C --> F[validate.py]
-    
+
     D --> G[Pretty SongML]
     E --> H[MIDI File]
     F --> I[Warnings/Errors]
-    
+
     H --> J[DAW]
     H --> K[Audio Playback]
-    
+
     style A fill:#e1f5ff
     style C fill:#fff3cd
     style H fill:#d4edda

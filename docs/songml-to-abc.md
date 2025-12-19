@@ -252,13 +252,13 @@ w: Hel-lo world
    - Header formatting with various property combinations
    - Beat-to-unit conversion with different time signatures
    - Lyrics tokenization and alignment
-   
+
 2. **Integration tests:** Full SongML → ABC conversions
    - Simple 4/4 progression
    - 3/4 and 6/8 time signatures
    - Pickup bars with prefix rests
    - Complex example: `samples/youve-got-a-way.songml`
-   
+
 3. **Round-trip validation:** Parse ABC output with ABC tools
    - Use `abc2midi` or similar to verify ABC syntax validity
    - Visual inspection of rendered notation

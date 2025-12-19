@@ -47,7 +47,7 @@ The generated SongML file includes:
 
 - **Intro**: 4-bar I-vi-IV-V progression
 - **Verse**: 8-bar verse with placeholder lyrics
-- **Chorus**: 8-bar chorus with placeholder lyrics  
+- **Chorus**: 8-bar chorus with placeholder lyrics
 - **Bridge**: 4-bar bridge section
 - **Outro**: 4-bar ending
 
@@ -58,7 +58,7 @@ All chord progressions use basic triads appropriate for the specified key.
 ### Major Keys
 Supports all 12 major keys: C, C#/Db, D, D#/Eb, E, F, F#/Gb, G, G#/Ab, A, A#/Bb, B
 
-### Minor Keys  
+### Minor Keys
 Supports all 12 minor keys by adding `min` suffix: Amin, C#min, Dmin, F#min, etc.
 
 ## Name Sanitization

@@ -82,7 +82,7 @@ ColumnWidths: TypeAlias = list[int]  # Width for each column
 
 class BarLineType(Enum):
     BAR_NUMBERS = "bar_numbers"
-    CHORDS = "chords" 
+    CHORDS = "chords"
     LYRICS = "lyrics"
     MIXED = "mixed"
 
@@ -94,7 +94,7 @@ class BarLine:
     line_type: BarLineType
     line_number: int
 
-@dataclass  
+@dataclass
 class BarGroup:
     """Consecutive lines with | markers that should be aligned together"""
     lines: list[BarLine]
@@ -107,7 +107,7 @@ class FormattedSection:
     """A section with potentially multiple bar groups and preserved text"""
     section_header: str
     content_blocks: list[BarGroup | TextBlock]
-    
+
 @dataclass
 class TextBlock:
     """Non-musical content preserved as-is"""
@@ -125,10 +125,10 @@ from ..parser.ast_nodes import BarGroup, BarLine, ColumnWidths
 class ColumnCalculator:
     def calculate_widths(self, bar_group: BarGroup) -> ColumnWidths:
         """Calculate optimal column widths for alignment"""
-        
+
     def _detect_content_type(self, cell_content: str) -> BarLineType:
         """Heuristic to identify if cell contains chords, lyrics, etc."""
-        
+
     def _weight_by_content_type(self, width: int, content_type: BarLineType) -> int:
         """Apply weighting - lyrics get priority for width calculation"""
 ```
@@ -140,10 +140,10 @@ from ..parser.ast_nodes import BarGroup, BarLine
 class BarAligner:
     def align_bar_group(self, bar_group: BarGroup) -> list[str]:
         """Convert BarGroup to list of aligned text lines"""
-        
+
     def _pad_cell(self, content: str, target_width: int) -> str:
         """Add trailing spaces without modifying internal content"""
-        
+
     def _preserve_cell_content(self, cell: str) -> str:
         """Validate that cell content timing semantics are preserved"""
 ```
@@ -158,13 +158,13 @@ class SongMLFormatter:
     def __init__(self, config: FormatterConfig = None):
         self.calculator = ColumnCalculator()
         self.aligner = BarAligner()
-        
+
     def format_document(self, doc: SongMLDocument) -> str:
         """Format entire SongML document"""
-        
+
     def format_section(self, section: Section) -> FormattedSection:
         """Format a single section, preserving non-bar content"""
-        
+
     def _group_bar_lines(self, section_lines: list[str]) -> list[BarGroup | TextBlock]:
         """Identify consecutive bar lines vs. other content"""
 ```
@@ -179,17 +179,17 @@ from ..formatter.format_engine import SongMLFormatter
 def main():
     parser = argparse.ArgumentParser(description="SongML tools")
     subparsers = parser.add_subparsers(dest='command')
-    
+
     # ...existing subcommands...
-    
+
     # Add format command
     format_parser = subparsers.add_parser('format', help='Format SongML file with aligned bars')
     format_parser.add_argument('input', help='Input SongML file')
     format_parser.add_argument('-o', '--output', help='Output file (default: overwrite input)')
     format_parser.add_argument('--dry-run', action='store_true', help='Show formatted output without writing')
-    
+
     args = parser.parse_args()
-    
+
     if args.command == 'format':
         format_file(args.input, args.output, args.dry_run)
 ```
@@ -198,13 +198,13 @@ def main():
 ```python
 def split_bar_line(line: str) -> list[str]:
     """Split line by | markers, preserving empty cells"""
-    
+
 def detect_bar_line(line: str) -> bool:
     """Check if line contains bar markers"""
-    
+
 def strip_line_comments(line: str) -> str:
     """Remove // comments while preserving bar content"""
-    
+
 def count_columns(lines: list[str]) -> int:
     """Find maximum number of | delimited columns across lines"""
 ```
@@ -219,7 +219,7 @@ def parse_section_content(self, lines: list[str]) -> SectionContent:
     """Parse section content, identifying bar groups for formatting"""
     bar_groups = []
     text_blocks = []
-    
+
     # Group consecutive bar lines
     # Preserve non-bar content as TextBlocks
     # Return structured content ready for formatting
@@ -274,7 +274,7 @@ class BarLine:
     cells: list[str]  # RAW content between | markers - never modified
     line_type: BarLineType  # BAR_NUMBERS, CHORDS, LYRICS
 
-# Non-musical content preserved as-is  
+# Non-musical content preserved as-is
 class TextBlock:
     content: str
     preserve_formatting: bool = True
@@ -303,7 +303,7 @@ Consider making these configurable:
 - Calculate widths, apply uniform padding
 - Handle simple chord/lyric combinations
 
-**Phase 2**: Smart width calculation  
+**Phase 2**: Smart width calculation
 - Analyze typical content types per column position
 - Weight lyrics more heavily for width calculation
 - Handle bar number formatting
@@ -322,7 +322,7 @@ Consider making these configurable:
 ```
 
 **Analysis:**
-- Column 1 content: "F.. F9/A Abdim7/B" (17 chars) vs "You've got a way" (16 chars) 
+- Column 1 content: "F.. F9/A Abdim7/B" (17 chars) vs "You've got a way" (16 chars)
 - Column 2 content: "Am7/E" (5 chars) vs "I just knew how" (15 chars)
 - Column widths: [17, 15]
 

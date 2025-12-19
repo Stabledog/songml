@@ -87,7 +87,7 @@ Humans edit the SongML; LLMs reconcile and maintain metadata.
 [Verse 1]
 Bar start: 8
 | Fmaj7 | Gm7.. C7 | Fmaj7 | Bbmaj7.. C7 | // Borinnngg...
-Lyrics: "Some - where | there's a | sky - light | " 
+Lyrics: "Some - where | there's a | sky - light | "
 
 [Chorus]
 Bar start: 32
@@ -147,17 +147,17 @@ SongML remains conceptually closer to a jazz chart than a DAW session.
 
 ## Coding principles:
 
-- Don't use complex types in function signatures, e.g. 
+- Don't use complex types in function signatures, e.g.
   ```python
   def get_foo(input: list[tuple[int, list[str]]]) -> tuple[str, str]:
      ...  # ick. Unreadable, semantics are obscured
   ```
 
   Instead, use `TypeAlias` to give domain meaning:
-  
+
   ```python
   from typing import TypeAlias
-  
+
   CustomerNotes: TypeAlias = list[str]
   CustomerIndex: TypeAlias = tuple[int, CustomerNotes]
   CustomerIndexes: TypeAlias = list[CustomerIndex]
@@ -198,4 +198,3 @@ SongML provides a text-based **semantic hub** for music composition that:
 - Enables round-trip creative collaboration between text, sound, and structure.
 
 **In short:** SongML is not about preserving data — it’s about preserving *intent*.
-

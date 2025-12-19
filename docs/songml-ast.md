@@ -10,43 +10,43 @@ classDiagram
         +List~Union[TextBlock, Property, Section]~ items
         +List~str~ warnings
     }
-    
+
     class TextBlock {
         +List~str~ lines
         +int line_number
     }
-    
+
     class Property {
         +str name
         +str value
         +int line_number
     }
-    
+
     class Section {
         +str name
         +int bar_count
         +List~Bar~ bars
         +int line_number
     }
-    
+
     class Bar {
         +int number
         +List~ChordToken~ chords
         +Optional~str~ lyrics
         +int line_number
     }
-    
+
     class ChordToken {
         +str text
         +float start_beat
         +float duration_beats
     }
-    
+
     class ParseError {
         +str message
         +int line_number
     }
-    
+
     Document "1" *-- "0..*" TextBlock : contains
     Document "1" *-- "0..*" Property : contains
     Document "1" *-- "0..*" Section : contains
@@ -64,10 +64,10 @@ flowchart TD
     C -->|Section Header| E[Section Node]
     C -->|Bar-delimited rows| F[Parse Bar Group]
     C -->|Other text| G[TextBlock Node]
-    
+
     D --> H[Update Property State]
     H --> I[Add to Document]
-    
+
     E --> J[Create Section]
     F --> K[Parse Bar Numbers]
     F --> L[Parse Chord Row]
@@ -79,11 +79,11 @@ flowchart TD
     O --> P[Apply Timing Rules]
     P --> J
     J --> I
-    
+
     G --> I
-    
+
     I[Document] --> Q[AST Ready]
-    
+
     style A fill:#e1f5ff
     style Q fill:#d4edda
     style H fill:#fff3cd
@@ -97,12 +97,12 @@ The parser maintains a property state dictionary throughout parsing. Properties 
 stateDiagram-v2
     [*] --> Defaults: Parser Init
     state "Time: 4/4<br/>Key: Cmaj<br/>Tempo: 100<br/>Title: Untitled" as Defaults
-    
+
     Defaults --> Section1: Parse Section
     Section1 --> PropertyChange: Encounter Property
     PropertyChange --> UpdatedState: Update State
     state "Time: 3/4<br/>Key: Cmaj<br/>Tempo: 100<br/>Title: Untitled" as UpdatedState
-    
+
     UpdatedState --> Section2: Parse Section
     Section2 --> [*]
 ```
@@ -120,15 +120,15 @@ flowchart LR
     D -->|No| F{Is Last Chord?}
     F -->|Yes| G[Fill Remaining Beats]
     F -->|No| H[Default: 1 Beat]
-    
+
     E --> I[Create ChordToken]
     G --> I
     H --> I
-    
+
     I --> J{More Tokens?}
     J -->|Yes| C
     J -->|No| K[Return ChordToken List]
-    
+
     style G fill:#d4edda
     style H fill:#fff3cd
 ```

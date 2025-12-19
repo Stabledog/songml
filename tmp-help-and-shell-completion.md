@@ -61,7 +61,7 @@ def main():
 
 **Purpose**: Generate bash completion script for all songml-* commands
 
-**Usage**: 
+**Usage**:
 ```bash
 songml-bashcompletion   # Output bash completion script to stdout
 ```
@@ -194,7 +194,7 @@ All phases successfully completed:
 
 **Files Modified:**
 - `songml-utils/src/songml_utils/create.py` - Added argparse help
-- `songml-utils/src/songml_utils/formatter.py` - Added argparse help  
+- `songml-utils/src/songml_utils/formatter.py` - Added argparse help
 - `songml-utils/src/songml_utils/validate.py` - Added argparse help
 - `songml-utils/src/songml_utils/midi_cli.py` - Added argparse help
 - `songml-utils/pyproject.toml` - Added songml-bashcompletion entry point
