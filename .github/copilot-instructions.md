@@ -58,7 +58,7 @@ A SongML file contains:
 - **Sections**: `[Section Name - N bars]` (bar count is required)
 - **Bar delimiters**: `|` marks bar boundaries
 - **Chords**: Standard notation (C, Dm7, Fmaj7, G7b9, C/E)
-- **Timing markers**: 
+- **Timing markers**:
   - `.` = one beat
   - `;` = half beat
   - `...` = silence/rest (e.g., `...;F` means rest for 3.5 beats, then F on beat 4-and)
@@ -89,7 +89,7 @@ Time: 4/4
 ### Technology Stack
 
 - **Language**: Python 3.13+
-- **Dependencies**: 
+- **Dependencies**:
   - `mido` (MIDI file generation)
   - `pychord` (chord parsing utilities)
 - **Test Framework**: pytest
@@ -114,9 +114,16 @@ Time: 4/4
 
 ## Coding Principles
 
+### Python Version
+
+**This project requires Python 3.13+.** Use modern Python syntax:
+- Use `type` keyword for type aliases (not `typing.TypeAlias`)
+- Use built-in generic types (`list`, `dict`) not typing imports
+- Leverage Python 3.13+ features where appropriate
+
 ### Type Annotations
 
-**Don't use complex types in function signatures.** Use `TypeAlias` to give domain meaning:
+**Don't use complex types in function signatures.** Use `type` keyword to give domain meaning:
 
 ```python
 # ❌ Bad: Unreadable, semantics are obscured
@@ -124,12 +131,10 @@ def get_foo(input: list[tuple[int, list[str]]]) -> tuple[str, str]:
     ...
 
 # ✅ Good: Readable, semantically meaningful
-from typing import TypeAlias
-
-CustomerNotes: TypeAlias = list[str]
-CustomerIndex: TypeAlias = tuple[int, CustomerNotes]
-CustomerIndexes: TypeAlias = list[CustomerIndex]
-FooResult: TypeAlias = tuple[str, str]
+type CustomerNotes = list[str]
+type CustomerIndex = tuple[int, CustomerNotes]
+type CustomerIndexes = list[CustomerIndex]
+type FooResult = tuple[str, str]
 
 def get_foo(indexes: CustomerIndexes) -> FooResult:
     ...
