@@ -48,17 +48,23 @@ This ensures all SongML timing tokens (`.` = 1 beat, `;` = 0.5 beat) map to inte
 
 ### Body: Chords and Lyrics
 
-**Approach:** Use ABC's **chord-annotation syntax** (chords above the staff) with lyrics below.
+**Approach:** Use ABC's **chord-annotation syntax** (chords above the staff) with **top-note melody** from chord voicings.
 
-ABC supports inline chord markers like `"C"` that appear above notation. We'll generate:
-1. A chord-only voice with chord annotations at appropriate positions
-2. Lyrics lines using `w:` directive, aligned bar-by-bar
+ABC supports inline chord markers like `"C"` that appear above notation. We generate:
+1. The **highest note** from each chord voicing as the melody line
+2. Chord symbol annotations (e.g., `"Fmaj7"`) that ABC renderers use to synthesize accompaniment
+3. Lyrics lines using `w:` directive, aligned bar-by-bar
 
-**Why chord-annotation over voice-based chords:**
-- Simpler implementation
-- Preserves SongML's leadsheet structure
-- Lyrics align naturally underneath
-- Readable in ABC source
+**Why top-note melody:**
+- ABC parsers expect sequential notes, not simultaneous chords (e.g., `c8` not `[CEG]8`)
+- The top note provides a singable melody line
+- Chord symbols trigger automatic accompaniment synthesis in players like abcjs
+- Multi-note chords (`[CEG]`) fail to render in most ABC tools
+
+**Chord Voicing Source:**
+- Use existing `chord_voicings.tsv` mappings from MIDI export
+- Extract top note (highest MIDI pitch) from each voicing
+- Convert MIDI note number to ABC notation (e.g., MIDI 72 → `c'`)
 
 ### Timing Conversion
 
@@ -102,7 +108,7 @@ ABC uses `w:` lines to attach lyrics to notes. Since we're emitting chords (not 
 | Unknown chord symbols | Pass through verbatim; no validation against `chord_voicings.tsv` |
 | Empty bars (synthesized by parser) | Emit measure of rests with no chord annotation |
 | Multiple chords per bar | Emit sequential chord annotations with computed durations |
-| Section headers | Convert to ABC comments or `P:` part markers (e.g., `P:Intro`) |
+| Section headers | Convert to `P:` part markers (e.g., `P:Intro`, `P:Verse 1`) |
 
 ## Implementation Plan
 
@@ -286,11 +292,38 @@ w: Hel-lo world
 - **SongML AST Structure:** `docs/songml-ast.md`
 - **SongML MIDI Generation:** `docs/songml-midi-generation.md` (similar conversion logic)
 
+## Critical ABC Parser Requirements
+
+**DISCOVERED:** ABC parsers (including abcjs) are extremely sensitive to blank lines:
+
+1. **No blank line after headers** — Music must start immediately after `K:` line
+2. **No blank lines between sections** — Music must be continuous throughout file
+3. **Section markers work** — `P:Intro` and `P:Verse 1` render correctly when no blank lines present
+
+**Failure mode:** Blank lines cause parser to stop processing. File shows "no errors" but renders only content before first blank line, nothing plays.
+
+**Example (BROKEN):**
+```abc
+K: F
+
+% Intro
+| "C"c8 |
+```
+
+**Example (WORKS):**
+```abc
+K: F
+P:Intro
+| "C"c8 |
+```
+
 ## Decision Log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2024-12-19 | Use fixed formula `L: 1/(denom×2)` | Simple, predictable, handles half-beats |
-| 2024-12-19 | Chord-annotation style (not voice) | Simpler implementation, readable output |
+| 2024-12-19 | Top note melody + chord symbols | ABC can't render multi-note chords; uses symbols for synth |
 | 2024-12-19 | Pass through unknown chords | Follows SongML's forgiving philosophy |
 | 2024-12-19 | No chord validation | ABC rendering will show issues naturally |
+| 2024-12-19 | Use `P:` markers (not `%` comments) | Renders section labels in output; works without blank lines |
+| 2024-12-19 | **No blank lines anywhere** | **CRITICAL:** ABC parsers silently fail with blank lines |

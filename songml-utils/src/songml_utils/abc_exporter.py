@@ -6,11 +6,31 @@ __all__ = ["to_abc_string", "export_abc"]
 
 
 from .ast import Bar, Document, Property, Section
+from .chord_voicings import get_chord_notes
 
 # ABC format constants
 DEFAULT_REFERENCE_NUMBER: int = 1
 
 type PropertyDict = dict[str, str]
+
+
+def get_chord_voicing(chord_symbol: str) -> list[int]:
+    """
+    Get MIDI notes for a chord symbol, with slash chord support.
+
+    Args:
+        chord_symbol: Chord symbol (e.g., "C", "F9/A")
+
+    Returns:
+        List of MIDI note numbers
+    """
+    try:
+        # Try to get voicing - use octave 5 (C5 = MIDI 60 = middle C)
+        # This puts chords in the comfortable treble clef range
+        return get_chord_notes(chord_symbol, root_octave=5)
+    except (ValueError, KeyError):
+        # Unknown chord
+        return []
 
 
 def to_abc_string(
@@ -55,7 +75,7 @@ def to_abc_string(
 
     # Add headers
     lines.extend(_format_abc_headers(props, unit_note_length, numerator, denominator))
-    lines.append("")  # Blank line after headers
+    # NOTE: No blank line after headers - ABC parsers require music to start immediately
 
     # Add each section
     for section in sections:
@@ -65,7 +85,7 @@ def to_abc_string(
         # Add bars with chords and lyrics
         section_lines = _format_section(section, beats_per_bar, denominator)
         lines.extend(section_lines)
-        lines.append("")  # Blank line between sections
+        # NOTE: No blank lines between sections - ABC parsers require continuous music
 
     return "\n".join(lines)
 
@@ -225,11 +245,67 @@ def _format_bar_chords(bar: Bar, beats_per_bar: int, denominator: int) -> str:
         # Duration in ABC units
         duration_units = _beats_to_abc_units(chord_token.duration_beats, denominator)
 
-        # Rest with chord annotation
-        # Format: "C"z4 means chord C annotation above a rest lasting 4 units
-        elements.append(f"{chord_annotation}z{duration_units}")
+        # Get chord voicing and use top note as melody
+        try:
+            voicing = get_chord_voicing(chord_token.text)
+            if voicing and len(voicing) > 0:
+                # Use the top note (highest pitch) as melody
+                top_note_midi = voicing[-1]
+                top_note_abc = _midi_to_abc_note(top_note_midi)
+                elements.append(f"{chord_annotation}{top_note_abc}{duration_units}")
+            else:
+                # No voicing found, use rest
+                elements.append(f"{chord_annotation}z{duration_units}")
+        except (ValueError, KeyError):
+            # Unknown chord, use rest
+            elements.append(f"{chord_annotation}z{duration_units}")
 
     return " ".join(elements)
+
+
+def _midi_to_abc_note(midi_note: int) -> str:
+    """
+    Convert MIDI note number to ABC notation.
+
+    ABC notation:
+    - C, D, E, F, G, A, B = octave starting at middle C (C4 = MIDI 60)
+    - c, d, e, f, g, a, b = octave above middle C (c5 = MIDI 72)
+    - C, D, ... = below c4, use comma: C, = MIDI 48
+    - For sharps: ^C, for flats: _D
+
+    Args:
+        midi_note: MIDI note number (0-127)
+
+    Returns:
+        ABC note string (e.g., "C", "^C,", "c", "_d")
+    """
+    note_names = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"]
+
+    note_in_octave = midi_note % 12
+    octave = midi_note // 12
+
+    base_note = note_names[note_in_octave]
+
+    # ABC middle C (C) starts at MIDI 60 (octave 5)
+    # Below that, use uppercase with commas
+    # Above 71, use lowercase
+    if midi_note < 60:
+        # Lowercase base note and add commas for each octave below 60
+        commas = "," * (5 - octave)
+        return base_note + commas
+    elif midi_note < 72:
+        # Between 60-71: uppercase, no modifiers (this is the main octave)
+        return base_note
+    else:
+        # 72 and above: lowercase
+        # Use lowercase version of the note
+        base_lower = base_note.replace("^", "^").lower()  # Keep accidental uppercase
+        # Handle sharp - accidental stays uppercase
+        base_lower = "^" + base_note[1].lower() if "^" in base_note else base_note.lower()
+
+        # Add apostrophes for octaves above 72
+        apostrophes = "'" * (octave - 5)
+        return base_lower + apostrophes
 
 
 def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:

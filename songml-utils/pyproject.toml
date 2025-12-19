@@ -19,6 +19,7 @@ songml-format = "songml_utils.formatter:main"
 songml-validate = "songml_utils.validate:main"
 songml-to-midi = "songml_utils.midi_cli:main"
 songml-to-abc = "songml_utils.abc_cli:main"
+songml-serve = "songml_utils.web_server:main"
 songml-bashcompletion = "songml_utils.bashcompletion:main"
 
 [project.optional-dependencies]
@@ -53,3 +54,6 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=xml"
 ]
+
+[tool.setuptools.package-data]
+songml_utils = ["data/*.html", "data/*.tsv", "data/*.sh", "data/*.py", "data/templates/*.songml"]
