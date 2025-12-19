@@ -340,60 +340,60 @@ Key: A
         # Verify Bar 1 A chord
         assert bar1_start in events_by_tick, f"Bar 1 A chord should start at tick {bar1_start}"
         bar1_on_events = [n for t, n in events_by_tick[bar1_start] if t == "note_on"]
-        assert (
-            set(bar1_on_events) == expected_a_notes
-        ), f"Bar 1 A chord: expected notes {expected_a_notes}, got {set(bar1_on_events)}"
+        assert set(bar1_on_events) == expected_a_notes, (
+            f"Bar 1 A chord: expected notes {expected_a_notes}, got {set(bar1_on_events)}"
+        )
 
         assert bar1_end in events_by_tick, f"Bar 1 A chord should end at tick {bar1_end}"
         bar1_off_events = [n for t, n in events_by_tick[bar1_end] if t == "note_off"]
-        assert (
-            set(bar1_off_events) == expected_a_notes
-        ), f"Bar 1 A chord off: expected notes {expected_a_notes}, got {set(bar1_off_events)}"
+        assert set(bar1_off_events) == expected_a_notes, (
+            f"Bar 1 A chord off: expected notes {expected_a_notes}, got {set(bar1_off_events)}"
+        )
 
         # Verify Bar 2 D chord
         assert bar2_d_start in events_by_tick, f"Bar 2 D chord should start at tick {bar2_d_start}"
         bar2_d_on = [n for t, n in events_by_tick[bar2_d_start] if t == "note_on"]
-        assert (
-            set(bar2_d_on) == expected_d_notes
-        ), f"Bar 2 D chord: expected notes {expected_d_notes}, got {set(bar2_d_on)}"
+        assert set(bar2_d_on) == expected_d_notes, (
+            f"Bar 2 D chord: expected notes {expected_d_notes}, got {set(bar2_d_on)}"
+        )
 
         assert bar2_d_end in events_by_tick, f"Bar 2 D chord should end at tick {bar2_d_end}"
         bar2_d_off = [n for t, n in events_by_tick[bar2_d_end] if t == "note_off"]
-        assert (
-            set(bar2_d_off) == expected_d_notes
-        ), f"Bar 2 D chord off: expected notes {expected_d_notes}, got {set(bar2_d_off)}"
+        assert set(bar2_d_off) == expected_d_notes, (
+            f"Bar 2 D chord off: expected notes {expected_d_notes}, got {set(bar2_d_off)}"
+        )
 
         # Verify Bar 2 E chord
         assert bar2_e_start in events_by_tick, f"Bar 2 E chord should start at tick {bar2_e_start}"
         bar2_e_on = [n for t, n in events_by_tick[bar2_e_start] if t == "note_on"]
-        assert (
-            set(bar2_e_on) == expected_e_notes
-        ), f"Bar 2 E chord: expected notes {expected_e_notes}, got {set(bar2_e_on)}"
+        assert set(bar2_e_on) == expected_e_notes, (
+            f"Bar 2 E chord: expected notes {expected_e_notes}, got {set(bar2_e_on)}"
+        )
 
         assert bar2_e_end in events_by_tick, f"Bar 2 E chord should end at tick {bar2_e_end}"
         bar2_e_off = [n for t, n in events_by_tick[bar2_e_end] if t == "note_off"]
-        assert (
-            set(bar2_e_off) == expected_e_notes
-        ), f"Bar 2 E chord off: expected notes {expected_e_notes}, got {set(bar2_e_off)}"
+        assert set(bar2_e_off) == expected_e_notes, (
+            f"Bar 2 E chord off: expected notes {expected_e_notes}, got {set(bar2_e_off)}"
+        )
 
         # Verify no extra note events at unexpected ticks
         expected_ticks = {bar1_start, bar1_end, bar2_d_start, bar2_d_end, bar2_e_start, bar2_e_end}
         actual_ticks = set(events_by_tick.keys())
         extra_ticks = actual_ticks - expected_ticks
-        assert (
-            len(extra_ticks) == 0
-        ), f"Found unexpected note events at ticks: {extra_ticks}. Events: {[events_by_tick[t] for t in extra_ticks]}"
+        assert len(extra_ticks) == 0, (
+            f"Found unexpected note events at ticks: {extra_ticks}. Events: {[events_by_tick[t] for t in extra_ticks]}"
+        )
 
         # Verify total note count
         total_on = len([e for e in events_with_tick if e[1] == "note_on"])
         total_off = len([e for e in events_with_tick if e[1] == "note_off"])
         expected_total = 3 + 3 + 3  # 3 notes in A, 3 in D, 3 in E
-        assert (
-            total_on == expected_total
-        ), f"Expected {expected_total} note_on events, got {total_on}"
-        assert (
-            total_off == expected_total
-        ), f"Expected {expected_total} note_off events, got {total_off}"
+        assert total_on == expected_total, (
+            f"Expected {expected_total} note_on events, got {total_on}"
+        )
+        assert total_off == expected_total, (
+            f"Expected {expected_total} note_off events, got {total_off}"
+        )
 
     finally:
         if os.path.exists(output_file):
@@ -432,22 +432,22 @@ Time: 4/4
             abs_tick += msg.time
 
             if msg.type == "note_on":
-                assert (
-                    msg.note not in active_notes
-                ), f"Note {msg.note} turned on at tick {abs_tick} but was already active from tick {active_notes[msg.note]}"
+                assert msg.note not in active_notes, (
+                    f"Note {msg.note} turned on at tick {abs_tick} but was already active from tick {active_notes[msg.note]}"
+                )
                 active_notes[msg.note] = abs_tick
             else:  # note_off
-                assert (
-                    msg.note in active_notes
-                ), f"Note {msg.note} turned off at tick {abs_tick} but was never turned on"
+                assert msg.note in active_notes, (
+                    f"Note {msg.note} turned off at tick {abs_tick} but was never turned on"
+                )
                 start_tick = active_notes.pop(msg.note)
                 duration = abs_tick - start_tick
                 note_durations.append((msg.note, duration))
 
         # Verify all notes were turned off
-        assert (
-            len(active_notes) == 0
-        ), f"Notes still active at end of track: {list(active_notes.keys())}"
+        assert len(active_notes) == 0, (
+            f"Notes still active at end of track: {list(active_notes.keys())}"
+        )
 
         # Verify we got the expected number of note on/off pairs
         # C chord: 3 notes (C, E, G)
@@ -575,9 +575,9 @@ def test_project_local_voicings(tmp_path):
         # (octave 3 in the code means MIDI octave notation where C3 = MIDI 48,
         # but the calculation is: C at octave 0 is 0, octave 3 is 0 + 3*12 = 36)
         expected_notes = [36, 41, 45]
-        assert sorted(notes_on) == sorted(
-            expected_notes
-        ), f"Expected {expected_notes}, got {sorted(notes_on)}"
+        assert sorted(notes_on) == sorted(expected_notes), (
+            f"Expected {expected_notes}, got {sorted(notes_on)}"
+        )
 
     finally:
         if os.path.exists(output_file):
