@@ -1,7 +1,7 @@
 # `songml` -- text-first music composition tool
 
-[![CI](https://github.com/YOUR_USERNAME/songml/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/songml/actions)
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/songml/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/songml)
+[![CI](https://github.com/stabledog/songml/workflows/CI/badge.svg)](https://github.com/stabledog/songml/actions)
+[![codecov](https://codecov.io/gh/stabledog/songml/branch/main/graph/badge.svg)](https://codecov.io/gh/stabledog/songml)
 
 See [docs/songml_design_manifesto.md]
 
