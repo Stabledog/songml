@@ -67,7 +67,7 @@ def main() -> None:
     except FileNotFoundError as e:
         print(f"✗ File error: {e}", file=sys.stderr)
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         print(f"✗ Error: {e}", file=sys.stderr)
         sys.exit(1)
 

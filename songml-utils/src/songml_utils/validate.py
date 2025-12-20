@@ -65,7 +65,7 @@ def main() -> None:
         print(f"✗ Parse error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
+        print(f"✗ Error: {e}", file=sys.stderr)  # pragma: no cover
         sys.exit(1)
 
 
