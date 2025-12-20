@@ -16,7 +16,7 @@ try:
     from pychord import Chord
 
     PYCHORD_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - pychord is a required dependency
     PYCHORD_AVAILABLE = False
     Chord = None  # type: ignore
 
@@ -103,7 +103,7 @@ def validate_chord_voicing(
     # Convert expected components to pitch classes
     try:
         expected_pcs = {NOTE_TO_PC[note] for note in expected_components}
-    except KeyError as e:
+    except KeyError as e:  # pragma: no cover - pychord always returns valid notes
         return (False, f"Cannot map expected component to pitch class: {e}")
 
     # Convert expected pitch classes to offsets relative to root

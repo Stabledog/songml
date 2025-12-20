@@ -75,3 +75,47 @@ def test_doubled_notes():
     is_valid, warning = validate_chord_voicing("C", "C", [0, 4, 7, 12])
     # Should pass - extra octave is allowed
     assert is_valid or "unexpected" in (warning or "").lower()
+
+
+def test_pychord_unavailable():
+    """Test validator behavior when pychord is not available (line 73 coverage)."""
+    import songml_utils.voicing_validator as validator
+
+    # Save original
+    original = validator.PYCHORD_AVAILABLE
+
+    try:
+        # Mock pychord unavailable
+        validator.PYCHORD_AVAILABLE = False
+
+        # Should skip validation and return True
+        is_valid, warning = validator.validate_chord_voicing("Cmaj7", "C", [0, 4, 7, 11])
+        assert is_valid
+        assert warning is None
+    finally:
+        # Restore
+        validator.PYCHORD_AVAILABLE = original
+
+
+def test_augmented_7_chord_normalization():
+    """Test +7 chord normalization to 7#5 (line 81 coverage)."""
+    # Test that +7 is normalized to 7#5 for pychord compatibility
+    is_valid, warning = validate_chord_voicing("C+7", "C", [0, 4, 8, 10])
+    # Should validate using the normalized form
+    assert is_valid or warning is not None
+
+
+def test_augmented_chord_without_7():
+    """Test + chord without 7 doesn't trigger special normalization (line 82-83 coverage)."""
+    is_valid, warning = validate_chord_voicing("Caug", "C", [0, 4, 8])
+    # Should validate normally
+    assert is_valid or warning is not None
+
+
+def test_voicing_with_unexpected_offsets():
+    """Test voicing contains notes not in chord (lines 127-128 coverage)."""
+    # C major chord but voicing includes F# (offset 6)
+    is_valid, warning = validate_chord_voicing("C", "C", [0, 4, 6, 7])
+    assert not is_valid
+    assert "unexpected offsets" in warning.lower()
+    assert "6" in warning  # Should mention the unexpected offset

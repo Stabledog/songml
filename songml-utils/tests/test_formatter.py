@@ -621,3 +621,105 @@ def test_formatter_helper_functions():
     new_line = _replace_bar_numbers(bar_line_with_numbers, [10, 11])
     assert "10" in new_line.cells[1]
     assert "11" in new_line.cells[2]
+
+
+def test_calculate_column_widths_empty_group():
+    """Test calculate_column_widths with empty bar group (line 86 coverage)."""
+    from songml_utils.formatter import BarGroup, calculate_column_widths
+
+    empty_group = BarGroup(lines=[], start_line=0, end_line=0)
+    widths = calculate_column_widths(empty_group)
+    assert widths == []
+
+
+def test_align_bar_group_column_overflow():
+    """Test align_bar_group when line has more columns than widths (line 142 coverage)."""
+    from songml_utils.formatter import BarGroup, BarLine, align_bar_group
+
+    lines = [
+        BarLine("", ["", " F ", " G ", " Am ", " Extra ", ""], 0),
+    ]
+    group = BarGroup(lines=lines, start_line=0, end_line=0)
+    widths = [0, 3, 3, 4]  # Only 4 widths, but line has 6 cells
+
+    aligned = align_bar_group(group, widths)
+    # Should handle gracefully - extra cells use their natural width
+    assert len(aligned) == 1
+    assert " Extra " in aligned[0]
+
+
+def test_extract_bar_renumbering_with_section_without_bars():
+    """Test _extract_bar_renumbering with sections that have no bars (line 286 coverage)."""
+    from songml_utils.ast import Bar, Document, Section
+    from songml_utils.formatter import _extract_bar_renumbering, _fix_bar_numbers_in_ast
+
+    # Manually construct a document with a section that has empty bars list
+    section_with_bars = Section("Real Section", 2, [Bar(1, [], 5), Bar(2, [], 6)], 1)
+    # Create section with empty bars list
+    empty_section = Section("Empty Section", 0, [], 2)
+
+    doc = Document([empty_section, section_with_bars], [])
+    _fix_bar_numbers_in_ast(doc)
+
+    # Should handle sections without bars gracefully (line 286: if not item.bars: continue)
+    bar_map = _extract_bar_renumbering(doc)
+    assert isinstance(bar_map, dict)
+
+
+def test_apply_bar_renumbering_empty_group():
+    """Test _apply_bar_renumbering with empty bar group (line 311 coverage)."""
+    from songml_utils.formatter import BarGroup, _apply_bar_renumbering
+
+    empty_group = BarGroup(lines=[], start_line=0, end_line=0)
+    bar_map = {}
+
+    result = _apply_bar_renumbering(empty_group, bar_map)
+    assert result == empty_group
+
+
+def test_apply_bar_renumbering_non_number_row():
+    """Test _apply_bar_renumbering when first line is not bar numbers (line 316 coverage)."""
+    from songml_utils.formatter import BarGroup, BarLine, _apply_bar_renumbering
+
+    lines = [
+        BarLine("", ["", " C ", " D ", ""], 0),  # Chord line, not numbers
+    ]
+    group = BarGroup(lines=lines, start_line=0, end_line=0)
+    bar_map = {1: [1, 2]}
+
+    result = _apply_bar_renumbering(group, bar_map)
+    # Should return unchanged since first line isn't bar numbers
+    assert result == group
+
+
+def test_apply_bar_renumbering_no_mapping():
+    """Test _apply_bar_renumbering when no mapping exists for line (line 322 coverage)."""
+    from songml_utils.formatter import BarGroup, BarLine, _apply_bar_renumbering
+
+    lines = [
+        BarLine("", ["", " 1 ", " 2 ", ""], 5),  # Line 5 with bar numbers
+    ]
+    group = BarGroup(lines=lines, start_line=5, end_line=5)
+    bar_map = {10: [1, 2]}  # Mapping exists but not for line 6 (5+1)
+
+    result = _apply_bar_renumbering(group, bar_map)
+    # Should return unchanged since no mapping for this line
+    assert result == group
+
+
+def test_replace_bar_numbers_more_numbers_than_correct_bars():
+    """Test _replace_bar_numbers when bar_index exceeds correct_bars (line 369 coverage)."""
+    from songml_utils.formatter import BarLine, _replace_bar_numbers
+
+    # Line with 4 bar numbers but only 2 correct bars provided
+    bar_line = BarLine("", ["", " 1 ", " 2 ", " 3 ", " 4 ", ""], 0)
+    correct_bars = [10, 11]  # Only 2 correct bars
+
+    result = _replace_bar_numbers(bar_line, correct_bars)
+
+    # First two should be replaced
+    assert "10" in result.cells[1]
+    assert "11" in result.cells[2]
+    # Last two should keep originals (defensive branch)
+    assert "3" in result.cells[3]
+    assert "4" in result.cells[4]
