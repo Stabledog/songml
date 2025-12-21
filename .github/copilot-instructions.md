@@ -158,6 +158,13 @@ def get_foo(indexes: CustomerIndexes) -> FooResult:
 4. **Semantic compression** — Reduce information to capture intent, not every detail
 5. **Round-trip capability** — AST should preserve enough info for reconstruction
 
+### Documentation and Diagrams
+
+**Prefer Mermaid over ASCII text for diagrams.** When creating diagrams in documentation or explanations:
+- Use Mermaid for flowcharts, sequence diagrams, state diagrams, etc.
+- Mermaid is more readable, maintainable, and renders better in modern markdown viewers
+- Only use ASCII art when Mermaid doesn't support the specific diagram type needed
+
 ## Key Design Decisions
 
 ### MIDI Export

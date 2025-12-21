@@ -131,8 +131,8 @@ def test_format_bar_chords_multiple_chords():
 
     result = _format_bar_chords(bar, beats_per_bar=4, denominator=4)
     # 2 beats each = 4 units each
-    # C chord top note is G (MIDI 67), F chord top note is c' (MIDI 72)
-    assert result == '"C"G4 "F"c\'4'
+    # C chord top note is G4 (MIDI 67), F chord top note is C5 (MIDI 72)
+    assert result == '"C"G4 "F"c4'
 
 
 def test_format_bar_chords_empty_bar():
@@ -151,8 +151,8 @@ def test_format_bar_chords_half_beat():
 
     result = _format_bar_chords(bar, beats_per_bar=4, denominator=4)
     # 0.5 beats = 1 unit
-    # F chord top note is c' (MIDI 72)
-    assert result == '"F"c\'1'
+    # F chord top note is C5 (MIDI 72)
+    assert result == '"F"c1'
 
 
 def test_simple_4_4_progression():
@@ -177,9 +177,9 @@ Time: 4/4
     assert "Q: 1/4=120" in abc
     assert "K: C" in abc
     assert "P:Verse" in abc
-    # C chord top note is G, F chord top note is c'
+    # C chord top note is G4, F chord top note is C5 (c in ABC notation)
     assert '"C"G8' in abc
-    assert '"F"c\'8' in abc
+    assert '"F"c8' in abc
 
 
 def test_3_4_time_signature():
@@ -196,7 +196,7 @@ Time: 3/4
 
     assert "M: 3/4" in abc
     assert "L: 1/8" in abc  # denominator=4 → L:1/8
-    # C chord top note is G (MIDI 67)
+    # C chord top note is G4 (MIDI 55)
     assert '"C"G6' in abc  # 3 beats = 6 units
 
 
@@ -214,7 +214,7 @@ Time: 6/8
 
     assert "M: 6/8" in abc
     assert "L: 1/16" in abc  # denominator=8 → L:1/16
-    # C chord top note is G (MIDI 67)
+    # C chord top note is G4 (MIDI 55)
     assert '"C"G24' in abc  # 6 beats = 24 units
 
 
@@ -231,8 +231,8 @@ Time: 4/4
     abc = to_abc_string(doc)
 
     # C lasts 2 beats = 4 units, F lasts 2 beats = 4 units
-    # C chord top note is G, F chord top note is c'
-    assert '"C"G4 "F"c\'4' in abc
+    # C chord top note is G4, F chord top note is C5 (c in ABC notation)
+    assert '"C"G4 "F"c4' in abc
 
 
 def test_semicolon_half_beat_timing():
@@ -248,8 +248,8 @@ Time: 4/4
     abc = to_abc_string(doc)
 
     # F starts at beat 3.5, lasts 0.5 beats = 1 unit
-    # F chord top note is c' (MIDI 72)
-    assert '"F"c\'1' in abc
+    # F chord top note is C5 (MIDI 72, c in ABC notation)
+    assert '"F"c1' in abc
 
 
 def test_lyrics_alignment():

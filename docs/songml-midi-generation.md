@@ -111,15 +111,15 @@ The exporter iterates through all sections and bars, converting AST timing into 
 For each `ChordToken`, the exporter:
 
 1. Looks up `chord_token.text` in the voicing table (via `get_chord_notes()`)
-2. Receives a list of MIDI note numbers (e.g., `[36, 40, 43]` for C major triad at octave 3)
+2. Receives a list of MIDI note numbers (e.g., `[60, 64, 67]` for C major triad at octave 4)
 3. Handles slash chords: `C7/G` → bass note `G` one octave below + `C7` voicing
 4. Raises `ValueError` if chord symbol not found in table (with section/bar/beat context)
 
 **Example:**
 ```
 ChordToken(text="Fmaj7", start_beat=0.0, duration_beats=2.0)
-→ get_chord_notes("Fmaj7", root_octave=3)
-→ [41, 45, 48, 52]  # F2, A2, C3, E3
+→ get_chord_notes("Fmaj7", root_octave=4)
+→ [65, 69, 72, 76]  # F4, A4, C5, E5
 ```
 
 ### Step 5: Generate Note Events
@@ -188,14 +188,14 @@ Slash chords are the **one exception** to pure table lookup. The code parses the
 
 1. Split `C7/G` → base chord `C7` and bass note `G`
 2. Look up `C7` in voicing table → `[0,4,7,10]`
-3. Calculate MIDI notes for `C7` at root octave 3 → `[36, 40, 43, 46]`
-4. Add bass note `G` at root octave 2 (one octave below) → `31`
-5. Return `[31, 36, 40, 43, 46]` (bass note prepended)
+3. Calculate MIDI notes for `C7` at root octave 4 → `[60, 64, 67, 70]`
+4. Add bass note `G` at root octave 3 (one octave below) → `55`
+5. Return `[55, 60, 64, 67, 70]` (bass note prepended)
 
 **Example:**
 ```python
-get_chord_notes("C7/G", root_octave=3)
-→ [31, 36, 40, 43, 46]  # G1 (bass), C2, E2, G2, Bb2
+get_chord_notes("C7/G", root_octave=4)
+→ [55, 60, 64, 67, 70]  # G3 (bass), C4, E4, G4, Bb4
 ```
 
 **Design rationale:** Slash chords have universal syntax and semantics in music notation. Rather than maintain a combinatorial explosion of entries (`C/G`, `C/E`, `C/A`, `Cmaj7/G`, `Cmaj7/E`, ...), we handle the slash programmatically. The base chord voicing is still table-driven.
@@ -326,10 +326,10 @@ This ensures seamless playback across section boundaries.
 - Matches SongML's single-voice chord progression model
 - Future enhancement: multi-track export for section-based instrumentation
 
-### 4. **Root Octave = 3**
-- Places triads in piano range C3–C5 (MIDI 48–72)
+### 4. **Root Octave = 4**
+- Places triads in comfortable range C4–C6 (MIDI 60–84)
 - Audible on most playback devices
-- Avoids extreme high/low ranges
+- Middle C (C4) as reference point
 
 ### 5. **No Lyrics in MIDI**
 - MIDI supports lyric meta-events, but most playback software ignores them

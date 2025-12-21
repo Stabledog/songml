@@ -10,13 +10,13 @@ from typing import Final
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 from .ast import Document, Property, Section
-from .chord_voicings import get_chord_notes, reload_voicing_table
+from .chord_voicings import MIDDLE_C_OCTAVE, get_chord_notes, reload_voicing_table
 
 # MIDI constants
 TICKS_PER_BEAT: Final[int] = 480
 DEFAULT_VELOCITY: Final[int] = 64
 DEFAULT_CHANNEL: Final[int] = 0
-DEFAULT_ROOT_OCTAVE: Final[int] = 3
+DEFAULT_ROOT_OCTAVE: Final[int] = MIDDLE_C_OCTAVE
 MICROSECONDS_PER_MINUTE: Final[int] = 60_000_000
 
 type MidiEvent = tuple[int, str, list[int]]

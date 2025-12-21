@@ -13,12 +13,16 @@ __all__ = [
     "reload_voicing_table",
     "get_voicing_table",
     "NOTE_TO_MIDI",
+    "MIDDLE_C_OCTAVE",
     "VoicingEntry",
     "VoicingTable",
 ]
 
 import os
 from typing import Final
+
+# Middle C (C4 = MIDI 60). All chord voicings use this as the default root octave.
+MIDDLE_C_OCTAVE: Final[int] = 4
 
 # Map of note names to MIDI numbers at octave 0
 NOTE_TO_MIDI: Final[dict[str, int]] = {
@@ -127,13 +131,13 @@ def get_voicing_table() -> VoicingTable:
     return _VOICING_TABLE
 
 
-def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:
+def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE) -> list[int]:
     """
     Get MIDI note numbers for a chord symbol.
 
     Args:
         chord_symbol: Exact chord symbol (e.g., "Cmaj7", "F9/A")
-        root_octave: Octave for root note (default 3 = C3=48)
+        root_octave: Octave for root note (default 4 = C4=60)
 
     Returns:
         List of MIDI note numbers
@@ -158,12 +162,16 @@ def get_chord_notes(chord_symbol: str, root_octave: int = 3) -> list[int]:
     root_note, offsets, _source_path, _line_num = _VOICING_TABLE[base_chord]
 
     # Calculate MIDI note numbers
-    root_midi = NOTE_TO_MIDI[root_note] + (root_octave * 12)
+    # MIDI octave numbering: MIDI note 0 = C-1 (not C0!)
+    # This means: C-1=0, C0=12, C1=24, C2=36, C3=48, C4=60 (middle C), C5=72, etc.
+    # Formula: MIDI note = (octave + 1) × 12 + semitone_offset
+    # Example: C4 (middle C) = (4 + 1) × 12 + 0 = 60
+    root_midi = NOTE_TO_MIDI[root_note] + ((root_octave + 1) * 12)
     notes = [root_midi + offset for offset in offsets]
 
     # Add bass note an octave below if slash chord
     if bass_note:
-        bass_midi = NOTE_TO_MIDI[bass_note] + ((root_octave - 1) * 12)
+        bass_midi = NOTE_TO_MIDI[bass_note] + (root_octave * 12)
         notes = [bass_midi] + notes
 
     return notes

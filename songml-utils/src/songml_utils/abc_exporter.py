@@ -6,7 +6,7 @@ __all__ = ["to_abc_string", "export_abc"]
 
 
 from .ast import Bar, Document, Property, Section
-from .chord_voicings import get_chord_notes
+from .chord_voicings import MIDDLE_C_OCTAVE, get_chord_notes
 
 # ABC format constants
 DEFAULT_REFERENCE_NUMBER: int = 1
@@ -25,9 +25,9 @@ def get_chord_voicing(chord_symbol: str) -> list[int]:
         List of MIDI note numbers
     """
     try:
-        # Try to get voicing - use octave 5 (C5 = MIDI 60 = middle C)
-        # This puts chords in the comfortable treble clef range
-        return get_chord_notes(chord_symbol, root_octave=5)
+        # Use middle C octave (C4 = MIDI 60) for voicing
+        # This puts top notes in comfortable singing/melody range
+        return get_chord_notes(chord_symbol, root_octave=MIDDLE_C_OCTAVE)
     except (ValueError, KeyError):
         # Unknown chord
         return []
@@ -286,12 +286,12 @@ def _midi_to_abc_note(midi_note: int) -> str:
 
     base_note = note_names[note_in_octave]
 
-    # ABC middle C (C) starts at MIDI 60 (octave 5)
+    # ABC middle C (C) starts at MIDI 60 (octave 4)
     # Below that, use uppercase with commas
     # Above 71, use lowercase
     if midi_note < 60:
         # Lowercase base note and add commas for each octave below 60
-        commas = "," * (5 - octave)
+        commas = "," * (4 - octave)
         return base_note + commas
     elif midi_note < 72:
         # Between 60-71: uppercase, no modifiers (this is the main octave)
@@ -304,7 +304,9 @@ def _midi_to_abc_note(midi_note: int) -> str:
         base_lower = "^" + base_note[1].lower() if "^" in base_note else base_note.lower()
 
         # Add apostrophes for octaves above 72
-        apostrophes = "'" * (octave - 5)
+        # MIDI 72-83 (C5-B5) = c-b (octave 6, no apostrophe)
+        # MIDI 84-95 (C6-B6) = c'-b' (octave 7, one apostrophe)
+        apostrophes = "'" * (octave - 6)
         return base_lower + apostrophes
 
 
