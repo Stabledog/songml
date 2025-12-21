@@ -18,64 +18,68 @@ def test_octave_numbering_convention():
 
     This test prevents regression of the octave calculation bug.
     """
-    # C4 (middle C) should be MIDI note 60
+    # C4 (middle C) should be MIDI note 60 (for the chord root)
+    # But now we also have bass note C3 (48) added
     notes = get_chord_notes("C", root_octave=4)
-    assert notes[0] == 60, "C4 (middle C) must be MIDI note 60"
+    assert notes[0] == 48, "Bass note C3 must be MIDI note 48"
+    assert notes[1] == 60, "C4 (middle C) must be MIDI note 60"
 
-    # Verify the full C major triad at octave 4
-    assert notes == [60, 64, 67]  # C4, E4, G4
+    # Verify the full C major triad at octave 4 with bass
+    assert notes == [48, 60, 64, 67]  # C3 (bass), C4, E4, G4
 
     # Verify other octaves
-    assert get_chord_notes("C", root_octave=3)[0] == 48  # C3
-    assert get_chord_notes("C", root_octave=5)[0] == 72  # C5
+    assert get_chord_notes("C", root_octave=3)[0] == 36  # Bass C2
+    assert get_chord_notes("C", root_octave=3)[1] == 48  # C3
+    assert get_chord_notes("C", root_octave=5)[0] == 60  # Bass C4
+    assert get_chord_notes("C", root_octave=5)[1] == 72  # C5
 
 
 def test_chord_voicing_lookup():
     """Test basic chord voicing lookups."""
     # Major chord at octave 4
-    # C at octave 4 = 0 + 60 = 60 (C4, middle C)
+    # Bass C3 (48) + C at octave 4 = 0 + 60 = 60 (C4, middle C)
     notes = get_chord_notes("C", root_octave=4)
-    assert notes == [60, 64, 67]  # C4, E4, G4
+    assert notes == [48, 60, 64, 67]  # C3 (bass), C4, E4, G4
 
     # Seventh chord
     notes = get_chord_notes("Cmaj7", root_octave=4)
-    assert notes == [60, 64, 67, 71]  # C4, E4, G4, B4
+    assert notes == [48, 60, 64, 67, 71]  # C3 (bass), C4, E4, G4, B4
 
     # Different root
-    # F at octave 4 = 5 + 60 = 65 (F4)
+    # Bass F3 (53) + F at octave 4 = 5 + 60 = 65 (F4)
     notes = get_chord_notes("F", root_octave=4)
-    assert notes == [65, 69, 72]  # F4, A4, C5
+    assert notes == [53, 65, 69, 72]  # F3 (bass), F4, A4, C5
 
 
 def test_chord_notes_for_wunderkind():
     """Test exact MIDI note numbers for chords in wunderkind.songml."""
     # A chord at root_octave=4
     # Voicing table: A	A	0,4,7
-    # A at octave 4 = 9 + 60 = 69 (MIDI note A4)
-    # Expected: A4(69), C#5(73), E5(76)
+    # Bass A3 (57) + A at octave 4 = 9 + 60 = 69 (MIDI note A4)
+    # Expected: A3(57) bass, A4(69), C#5(73), E5(76)
     notes = get_chord_notes("A", root_octave=4)
-    assert notes == [69, 73, 76], f"A chord: expected [69, 73, 76], got {notes}"
+    assert notes == [57, 69, 73, 76], f"A chord: expected [57, 69, 73, 76], got {notes}"
 
     # D chord at root_octave=4
     # Voicing table: D	D	0,4,7
-    # D at octave 4 = 2 + 60 = 62 (MIDI note D4)
-    # Expected: D4(62), F#4(66), A4(69)
+    # Bass D3 (50) + D at octave 4 = 2 + 60 = 62 (MIDI note D4)
+    # Expected: D3(50) bass, D4(62), F#4(66), A4(69)
     notes = get_chord_notes("D", root_octave=4)
-    assert notes == [62, 66, 69], f"D chord: expected [62, 66, 69], got {notes}"
+    assert notes == [50, 62, 66, 69], f"D chord: expected [50, 62, 66, 69], got {notes}"
 
     # E chord at root_octave=4
     # Voicing table: E	E	0,4,7
-    # E at octave 4 = 4 + 60 = 64 (MIDI note E4)
-    # Expected: E4(64), G#4(68), B4(71)
+    # Bass E3 (52) + E at octave 4 = 4 + 60 = 64 (MIDI note E4)
+    # Expected: E3(52) bass, E4(64), G#4(68), B4(71)
     notes = get_chord_notes("E", root_octave=4)
-    assert notes == [64, 68, 71], f"E chord: expected [64, 68, 71], got {notes}"
+    assert notes == [52, 64, 68, 71], f"E chord: expected [52, 64, 68, 71], got {notes}"
 
     # Bm7 chord at root_octave=4
     # Voicing table: Bm7	B	0,3,7,10
-    # B at octave 4 = 11 + 60 = 71 (MIDI note B4)
-    # Expected: B4(71), D5(74), F#5(78), A5(81)
+    # Bass B3 (59) + B at octave 4 = 11 + 60 = 71 (MIDI note B4)
+    # Expected: B3(59) bass, B4(71), D5(74), F#5(78), A5(81)
     notes = get_chord_notes("Bm7", root_octave=4)
-    assert notes == [71, 74, 78, 81], f"Bm7 chord: expected [71, 74, 78, 81], got {notes}"
+    assert notes == [59, 71, 74, 78, 81], f"Bm7 chord: expected [59, 71, 74, 78, 81], got {notes}"
 
 
 def test_slash_chord():
@@ -331,13 +335,13 @@ Key: A
             events_with_tick.append((abs_tick, msg.type, msg.note))
 
         # Expected notes:
-        # Bar 1 (A chord): A4(69), C#5(73), E5(76)
-        # Bar 2 (D chord): D4(62), F#4(66), A4(69)
-        # Bar 2 (E chord): E4(64), G#4(68), B4(71)
+        # Bar 1 (A chord): A3(57) bass, A4(69), C#5(73), E5(76)
+        # Bar 2 (D chord): D3(50) bass, D4(62), F#4(66), A4(69)
+        # Bar 2 (E chord): E3(52) bass, E4(64), G#4(68), B4(71)
 
-        expected_a_notes = {69, 73, 76}
-        expected_d_notes = {62, 66, 69}
-        expected_e_notes = {64, 68, 71}
+        expected_a_notes = {57, 69, 73, 76}
+        expected_d_notes = {50, 62, 66, 69}
+        expected_e_notes = {52, 64, 68, 71}
 
         # Calculate expected ticks (480 ticks per beat)
         # Bars are numbered sequentially from 0 in the MIDI output
@@ -407,7 +411,7 @@ Key: A
         # Verify total note count
         total_on = len([e for e in events_with_tick if e[1] == "note_on"])
         total_off = len([e for e in events_with_tick if e[1] == "note_off"])
-        expected_total = 3 + 3 + 3  # 3 notes in A, 3 in D, 3 in E
+        expected_total = 4 + 4 + 4  # 4 notes (including bass) in A, 4 in D, 4 in E
         assert total_on == expected_total, (
             f"Expected {expected_total} note_on events, got {total_on}"
         )
@@ -470,11 +474,11 @@ Time: 4/4
         )
 
         # Verify we got the expected number of note on/off pairs
-        # C chord: 3 notes (C, E, G)
-        # G chord: 3 notes (G, B, D) - G is shared with C
-        # F chord: 3 notes (F, A, C) - C is shared with C chord
-        # Total: 3 + 3 + 3 = 9 note pairs (even though some notes are in multiple chords)
-        assert len(note_durations) == 9, f"Expected 9 note on/off pairs, got {len(note_durations)}"
+        # C chord: 4 notes (C3 bass, C4, E4, G4)
+        # G chord: 4 notes (G3 bass, G4, B4, D5)
+        # F chord: 4 notes (F3 bass, F4, A4, C5)
+        # Total: 4 + 4 + 4 = 12 note pairs
+        assert len(note_durations) == 12, f"Expected 12 note on/off pairs, got {len(note_durations)}"
 
         # All durations should be either 1920 (4 beats for C) or 960 (2 beats for G/F)
         for note, duration in note_durations:
@@ -530,7 +534,7 @@ Time: 4/4
         # Verify C chord timing
         assert bar0_start in tick_to_events, f"C chord should start at tick {bar0_start}"
         c_on = [n for t, n in tick_to_events[bar0_start] if t == "note_on"]
-        assert len(c_on) == 3, f"C chord should have 3 notes, got {len(c_on)}"
+        assert len(c_on) == 4, f"C chord should have 4 notes (including bass), got {len(c_on)}"
 
         assert bar0_end in tick_to_events, f"C chord should end at tick {bar0_end}"
         c_off = [n for t, n in tick_to_events[bar0_end] if t == "note_off"]
@@ -539,12 +543,12 @@ Time: 4/4
         # Verify D chord timing
         assert bar1_start in tick_to_events, f"D chord should start at tick {bar1_start}"
         d_on = [n for t, n in tick_to_events[bar1_start] if t == "note_on"]
-        assert len(d_on) == 3, f"D chord should have 3 notes, got {len(d_on)}"
+        assert len(d_on) == 4, f"D chord should have 4 notes (including bass), got {len(d_on)}"
 
         # Verify E chord timing
         assert bar2_start in tick_to_events, f"E chord should start at tick {bar2_start}"
         e_on = [n for t, n in tick_to_events[bar2_start] if t == "note_on"]
-        assert len(e_on) == 3, f"E chord should have 3 notes, got {len(e_on)}"
+        assert len(e_on) == 4, f"E chord should have 4 notes (including bass), got {len(e_on)}"
 
     finally:
         if os.path.exists(output_file):
@@ -591,13 +595,16 @@ def test_project_local_voicings(tmp_path):
             if msg.type == "note_on" and msg.velocity > 0
         ]
 
-        # Should have C4(60), F4(65), A4(69) based on custom voicing at octave 4
+        # Should have C3(48) bass, C4(60), F4(65), A4(69) based on custom voicing at octave 4
         # (octave 4 means C4 = MIDI 60, using standard MIDI convention)
-        expected_notes = [60, 65, 69]
+        expected_notes = [48, 60, 65, 69]
         assert sorted(notes_on) == sorted(expected_notes), (
             f"Expected {expected_notes}, got {sorted(notes_on)}"
         )
 
     finally:
+        # Restore the default voicing table
+        from songml_utils.chord_voicings import reload_voicing_table
+        reload_voicing_table()
         if os.path.exists(output_file):
             os.remove(output_file)

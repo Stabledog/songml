@@ -16,46 +16,48 @@ from songml_utils.parser import parse_songml
 
 def test_get_chord_notes_transpose_positive():
     """Test transposing chord notes up."""
-    # C major at octave 4: [60, 64, 67]
+    # C major at octave 4: bass C3 (48) + chord [60, 64, 67]
     notes_original = get_chord_notes("C", root_octave=4, transpose=0)
-    assert notes_original == [60, 64, 67]
+    assert notes_original == [48, 60, 64, 67]
 
     # Transpose up 12 semitones (one octave)
     notes_up = get_chord_notes("C", root_octave=4, transpose=12)
-    assert notes_up == [72, 76, 79]  # C5, E5, G5
+    assert notes_up == [60, 72, 76, 79]  # C4, C5, E5, G5
 
     # Transpose up 2 semitones (C to D)
     notes_up2 = get_chord_notes("C", root_octave=4, transpose=2)
-    assert notes_up2 == [62, 66, 69]
+    assert notes_up2 == [50, 62, 66, 69]
 
 
 def test_get_chord_notes_transpose_negative():
     """Test transposing chord notes down."""
-    # C major at octave 4: [60, 64, 67]
+    # C major at octave 4: bass C3 (48) + chord [60, 64, 67]
     notes_original = get_chord_notes("C", root_octave=4, transpose=0)
-    assert notes_original == [60, 64, 67]
+    assert notes_original == [48, 60, 64, 67]
 
     # Transpose down 12 semitones (one octave)
     notes_down = get_chord_notes("C", root_octave=4, transpose=-12)
-    assert notes_down == [48, 52, 55]  # C3, E3, G3
+    assert notes_down == [36, 48, 52, 55]  # C2, C3, E3, G3
 
     # Transpose down 5 semitones (C to G)
     notes_down5 = get_chord_notes("C", root_octave=4, transpose=-5)
-    assert notes_down5 == [55, 59, 62]
+    assert notes_down5 == [43, 55, 59, 62]
 
 
 def test_get_chord_notes_transpose_slash_chord():
     """Test transpose with slash chords (bass note handling)."""
-    # C/G at octave 4: bass G3 + C voicing
+    # C/G at octave 4: bass G3 (55) + C voicing (60, 64, 67)
     notes_original = get_chord_notes("C/G", root_octave=4, transpose=0)
     # Bass G3 (55) + C (60, 64, 67)
-    assert notes_original[0] == 55  # Bass note
+    assert notes_original[0] == 55  # Bass note (G3)
+    assert notes_original == [55, 60, 64, 67]
 
     # Transpose up 2 semitones
     notes_up = get_chord_notes("C/G", root_octave=4, transpose=2)
     # All notes should be +2
     assert notes_up[0] == 57  # Bass note G3 -> A3
     assert notes_up[1] == 62  # C4 -> D4
+    assert notes_up == [57, 62, 66, 69]
 
 
 def test_get_chord_notes_transpose_zero_is_noop():
@@ -75,12 +77,12 @@ Time: 4/4
 
 [Verse - 2 bars]
 | 0   | 1  |
-| C   | Cm |
+| C   | D  |
 """
     doc = parse_songml(songml)
     output_file = tmp_path / "transposed.mid"
 
-    # Export with transpose +5 (C to F)
+    # Export with transpose +5 (C to F, D to G)
     export_midi(doc, str(output_file), transpose=5)
 
     # Verify MIDI file was created
@@ -90,9 +92,9 @@ Time: 4/4
     mid = MidiFile(str(output_file))
     note_ons = [msg for track in mid.tracks for msg in track if msg.type == "note_on"]
 
-    # C chord transposed +5: [60, 64, 67] -> [65, 69, 72] (F major)
-    # Cm chord transposed +5: [60, 63, 67] -> [65, 68, 72]
-    expected_notes = {65, 68, 69, 72}
+    # C chord transposed +5: bass C3 (48) + [60, 64, 67] -> bass F3 (53) + [65, 69, 72]
+    # D chord transposed +5: bass D3 (50) + [62, 66, 69] -> bass G3 (55) + [67, 71, 74]
+    expected_notes = {53, 55, 65, 67, 69, 71, 72, 74}
     actual_notes = {msg.note for msg in note_ons}
 
     assert actual_notes == expected_notes
@@ -114,15 +116,16 @@ Time: 4/4
     output_file = tmp_path / "high_transpose.mid"
 
     # Transpose way up to force notes above 127
-    # C at octave 4 = [60, 64, 67]
-    # +70 = [130, 134, 137] - all out of range
+    # C at octave 4 = bass C3 (48) + [60, 64, 67]
+    # +70 = bass (118) + [130, 134, 137]
+    # Bass note 118 is valid, chord notes are all out of range
     with caplog.at_level(logging.ERROR):
         export_midi(doc, str(output_file), transpose=70)
 
-    # Verify MIDI file was still created (even with no valid notes)
+    # Verify MIDI file was still created
     assert output_file.exists()
 
-    # Verify error messages were logged
+    # Verify error messages were logged for chord notes
     captured = capsys.readouterr()
     assert "Dropped MIDI note" in captured.err
     assert "out of MIDI range 0-127" in captured.err
@@ -132,10 +135,11 @@ Time: 4/4
     assert "Warning:" in captured.err
     assert "were dropped" in captured.err
 
-    # Load and verify no note_on messages (all notes dropped)
+    # Load and verify only bass note remains (118)
     mid = MidiFile(str(output_file))
     note_ons = [msg for track in mid.tracks for msg in track if msg.type == "note_on"]
-    assert len(note_ons) == 0, "All notes should have been dropped"
+    assert len(note_ons) == 1, "Only bass note should remain"
+    assert note_ons[0].note == 118
 
 
 def test_export_midi_transpose_drops_out_of_range_low(tmp_path, caplog, capsys):
@@ -194,26 +198,27 @@ Time: 4/4
     output_file = tmp_path / "partial_drop.mid"
 
     # Transpose to boundary: some notes valid, some invalid
-    # C at octave 4 = [60, 64, 67]
-    # +64 = [124, 128, 131] - first valid, others invalid
+    # C at octave 4 = bass C3 (48) + [60, 64, 67]
+    # +64 = bass (112) + [124, 128, 131] - bass and first chord note valid, others invalid
     with caplog.at_level(logging.ERROR):
         export_midi(doc, str(output_file), transpose=64)
 
     # Verify file created
     assert output_file.exists()
 
-    # Verify errors logged
+    # Verify errors logged for out-of-range notes
     captured = capsys.readouterr()
     assert "Dropped MIDI note 128" in captured.err or "128" in captured.err
     assert "Dropped MIDI note 131" in captured.err or "131" in captured.err
 
-    # Load and verify only the valid note (124) remains
+    # Load and verify only valid notes remain (bass 112 and chord note 124)
     mid = MidiFile(str(output_file))
     note_ons = [msg for track in mid.tracks for msg in track if msg.type == "note_on"]
 
     actual_notes = [msg.note for msg in note_ons]
-    assert 124 in actual_notes
-    assert len(actual_notes) == 1  # Only one valid note
+    assert 112 in actual_notes  # Bass note
+    assert 124 in actual_notes  # First chord note
+    assert len(actual_notes) == 2  # Two valid notes
 
 
 def test_export_midi_transpose_multiple_chords_mixed_validity(tmp_path, capsys):
@@ -237,11 +242,12 @@ Time: 4/4
     # Verify file created
     assert output_file.exists()
 
-    # Both chords should have logged errors
+    # Both chords should have logged errors for the chord notes (not bass)
     captured = capsys.readouterr()
     # Should see multiple "Dropped MIDI note" messages
+    # 3 chord notes per C chord × 2 chords = 6 (bass notes are still valid)
     drop_count = captured.err.count("Dropped MIDI note")
-    assert drop_count >= 6  # 3 notes per C chord × 2 chords
+    assert drop_count >= 6
 
 
 def test_export_midi_transpose_with_section_and_bar_context(tmp_path, capsys):
@@ -258,7 +264,7 @@ Time: 4/4
 
 [Verse - 1 bars]
 | 0  |
-| Cm |
+| D |
 """
     doc = parse_songml(songml)
     output_file = tmp_path / "context.mid"
@@ -271,7 +277,7 @@ Time: 4/4
     # Check for bar numbers
     assert "bar 0" in captured.err or "bar 1" in captured.err
     # Check for chord symbols
-    assert "'C'" in captured.err or "'Cm'" in captured.err
+    assert "'C'" in captured.err or "'D'" in captured.err
 
 
 def test_export_midi_backwards_compatible_no_transpose(tmp_path):
@@ -298,5 +304,5 @@ Time: 4/4
     note_ons = [msg for track in mid.tracks for msg in track if msg.type == "note_on"]
     actual_notes = {msg.note for msg in note_ons}
 
-    # C chord: [60, 64, 67]
-    assert actual_notes == {60, 64, 67}
+    # C chord: bass C3 (48) + [60, 64, 67]
+    assert actual_notes == {48, 60, 64, 67}

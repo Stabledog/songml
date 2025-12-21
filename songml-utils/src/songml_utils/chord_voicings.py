@@ -170,10 +170,11 @@ def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE, trans
     root_midi = NOTE_TO_MIDI[root_note] + ((root_octave + 1) * 12)
     notes = [root_midi + offset for offset in offsets]
 
-    # Add bass note an octave below if slash chord
-    if bass_note:
-        bass_midi = NOTE_TO_MIDI[bass_note] + (root_octave * 12)
-        notes = [bass_midi] + notes
+    # Add bass note an octave below
+    # For slash chords, use the specified bass note; for regular chords, use the root
+    bass_note_to_use = bass_note if bass_note else root_note
+    bass_midi = NOTE_TO_MIDI[bass_note_to_use] + (root_octave * 12)
+    notes = [bass_midi] + notes
 
     # Apply transpose offset
     if transpose != 0:
