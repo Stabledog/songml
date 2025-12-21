@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = ["export_midi"]
 
+import logging
 import sys
 from typing import Final
 
@@ -23,7 +24,7 @@ type MidiEvent = tuple[int, str, list[int]]
 type MidiEvents = list[MidiEvent]
 
 
-def export_midi(doc: Document, output_path: str, voicings_path: str | None = None) -> None:
+def export_midi(doc: Document, output_path: str, voicings_path: str | None = None, transpose: int = 0) -> None:
     """
     Export SongML AST to MIDI file.
 
@@ -35,6 +36,7 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
         doc: Parsed SongML document containing sections with bars and chords
         output_path: Path to write the .mid file
         voicings_path: Optional path to chord_voicings.tsv (None = auto-discover or use default)
+        transpose: Semitones to transpose (default 0, positive = up, negative = down)
 
     Raises:
         ValueError: If document has no sections, no chords, or contains
@@ -89,6 +91,9 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
     # Track absolute bar position across all sections
     absolute_bar_number = 0
 
+    # Track dropped notes for summary
+    dropped_note_count = 0
+
     for section in sections:
         for bar in section.bars:
             # Use absolute bar position, not the bar's labeled number
@@ -102,14 +107,46 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
 
                 # Get MIDI notes for this chord
                 try:
-                    notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE)
+                    notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=transpose)
                 except ValueError as e:
                     raise ValueError(
                         f'Error at section "{section.name}", bar {bar.number}, beat {chord_token.start_beat}: {e}'
                     ) from e
 
-                events.append((tick, "note_on", notes))
-                events.append((tick + duration_ticks, "note_off", notes))
+                # Filter out-of-range MIDI notes (valid range: 0-127)
+                valid_notes = []
+                for note in notes:
+                    if note < 0 or note > 127:
+                        # Log detailed error for this dropped note
+                        original_notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=0)
+                        # Find which original note this corresponds to
+                        note_index = notes.index(note)
+                        original_midi = original_notes[note_index] if note_index < len(original_notes) else note - transpose
+                        
+                        logging.error(
+                            f"Dropped MIDI note {note} (original {original_midi}) for chord '{chord_token.text}' "
+                            f"at section '{section.name}', bar {bar.number}, beat {chord_token.start_beat}: "
+                            f"out of MIDI range 0-127"
+                        )
+                        print(
+                            f"Error: Dropped MIDI note {note} (original {original_midi}) for chord '{chord_token.text}' "
+                            f"at section '{section.name}', bar {bar.number}, beat {chord_token.start_beat}: "
+                            f"out of MIDI range 0-127",
+                            file=sys.stderr,
+                        )
+                        dropped_note_count += 1
+                    else:
+                        valid_notes.append(note)
+
+                # Only add events if we have valid notes
+                if valid_notes:
+                    events.append((tick, "note_on", valid_notes))
+                    events.append((tick + duration_ticks, "note_off", valid_notes))
+                elif notes:  # Had notes but all were dropped
+                    logging.warning(
+                        f"Chord '{chord_token.text}' at section '{section.name}', bar {bar.number}, "
+                        f"beat {chord_token.start_beat} produced no playable notes after transpose"
+                    )
 
     # Sort events by time, then by type (note_off before note_on at same time)
     # This ensures notes are turned off before being turned on again
@@ -149,6 +186,15 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
 
     # End of track
     track.append(MetaMessage("end_of_track", time=0))
+
+    # Emit summary warning if notes were dropped
+    if dropped_note_count > 0:
+        warning_msg = (
+            f"Warning: {dropped_note_count} MIDI note(s) were dropped because "
+            f"transpose produced out-of-range values (valid range: 0-127). See errors above for details."
+        )
+        logging.warning(warning_msg)
+        print(warning_msg, file=sys.stderr)
 
     # Save MIDI file
     mid.save(output_path)

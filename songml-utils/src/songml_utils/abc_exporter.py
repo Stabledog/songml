@@ -14,12 +14,13 @@ DEFAULT_REFERENCE_NUMBER: int = 1
 type PropertyDict = dict[str, str]
 
 
-def get_chord_voicing(chord_symbol: str) -> list[int]:
+def get_chord_voicing(chord_symbol: str, transpose: int = 0) -> list[int]:
     """
     Get MIDI notes for a chord symbol, with slash chord support.
 
     Args:
         chord_symbol: Chord symbol (e.g., "C", "F9/A")
+        transpose: Semitones to transpose (default 0)
 
     Returns:
         List of MIDI note numbers
@@ -27,14 +28,14 @@ def get_chord_voicing(chord_symbol: str) -> list[int]:
     try:
         # Use middle C octave (C4 = MIDI 60) for voicing
         # This puts top notes in comfortable singing/melody range
-        return get_chord_notes(chord_symbol, root_octave=MIDDLE_C_OCTAVE)
+        return get_chord_notes(chord_symbol, root_octave=MIDDLE_C_OCTAVE, transpose=transpose)
     except (ValueError, KeyError):
         # Unknown chord
         return []
 
 
 def to_abc_string(
-    doc: Document, unit_note_length: str | None = None, chord_style: str = "chordline"
+    doc: Document, unit_note_length: str | None = None, chord_style: str = "chordline", transpose: int = 0
 ) -> str:
     """
     Convert SongML Document to ABC notation string.
@@ -44,6 +45,7 @@ def to_abc_string(
         unit_note_length: Override computed L: value (e.g., "1/16"). If None,
                          computed as 1/(denominator*2) from time signature.
         chord_style: Chord rendering style; currently only 'chordline' supported
+        transpose: Semitones to transpose (default 0)
 
     Returns:
         ABC notation as a string
@@ -83,7 +85,7 @@ def to_abc_string(
         lines.append(f"P:{section.name}")
 
         # Add bars with chords and lyrics
-        section_lines = _format_section(section, beats_per_bar, denominator)
+        section_lines = _format_section(section, beats_per_bar, denominator, transpose)
         lines.extend(section_lines)
         # NOTE: No blank lines between sections - ABC parsers require continuous music
 
@@ -95,6 +97,7 @@ def export_abc(
     output_path: str,
     unit_note_length: str | None = None,
     chord_style: str = "chordline",
+    transpose: int = 0,
 ) -> None:
     """
     Export SongML Document to ABC file.
@@ -104,8 +107,9 @@ def export_abc(
         output_path: Path to write the .abc file
         unit_note_length: Override computed L: value
         chord_style: Chord rendering style ('chordline' only)
+        transpose: Semitones to transpose (default 0)
     """
-    abc_text = to_abc_string(doc, unit_note_length, chord_style)
+    abc_text = to_abc_string(doc, unit_note_length, chord_style, transpose)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(abc_text)
@@ -194,7 +198,7 @@ def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     return numerator, denominator
 
 
-def _format_section(section: Section, beats_per_bar: int, denominator: int) -> list[str]:
+def _format_section(section: Section, beats_per_bar: int, denominator: int, transpose: int = 0) -> list[str]:
     """Format a section with bars, chords, and lyrics."""
     lines: list[str] = []
 
@@ -205,7 +209,7 @@ def _format_section(section: Section, beats_per_bar: int, denominator: int) -> l
         bar_group = section.bars[i : i + bars_per_line]
 
         # Format chord line for this group
-        chord_line = _format_bar_group_chords(bar_group, beats_per_bar, denominator)
+        chord_line = _format_bar_group_chords(bar_group, beats_per_bar, denominator, transpose)
         lines.append(chord_line)
 
         # Format lyrics line if any bar in group has lyrics
@@ -216,19 +220,19 @@ def _format_section(section: Section, beats_per_bar: int, denominator: int) -> l
     return lines
 
 
-def _format_bar_group_chords(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:
+def _format_bar_group_chords(bars: list[Bar], beats_per_bar: int, denominator: int, transpose: int = 0) -> str:
     """Format a group of bars as ABC chord notation."""
     bar_strs: list[str] = []
 
     for bar in bars:
-        bar_str = _format_bar_chords(bar, beats_per_bar, denominator)
+        bar_str = _format_bar_chords(bar, beats_per_bar, denominator, transpose)
         bar_strs.append(bar_str)
 
     # Join bars with bar lines
     return "| " + " | ".join(bar_strs) + " |"
 
 
-def _format_bar_chords(bar: Bar, beats_per_bar: int, denominator: int) -> str:
+def _format_bar_chords(bar: Bar, beats_per_bar: int, denominator: int, transpose: int = 0) -> str:
     """Format a single bar's chords as ABC notation."""
     if not bar.chords:
         # Empty bar: fill with rests
@@ -247,7 +251,7 @@ def _format_bar_chords(bar: Bar, beats_per_bar: int, denominator: int) -> str:
 
         # Get chord voicing and use top note as melody
         try:
-            voicing = get_chord_voicing(chord_token.text)
+            voicing = get_chord_voicing(chord_token.text, transpose)
             if voicing and len(voicing) > 0:
                 # Use the top note (highest pitch) as melody
                 top_note_midi = voicing[-1]

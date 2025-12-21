@@ -98,6 +98,7 @@ class TestAbcCli:
         kwargs = mock_to_abc_string.call_args[1]
         assert kwargs["unit_note_length"] == "1/8"
         assert kwargs["chord_style"] == "inline"
+        assert kwargs["transpose"] == 0  # default transpose
 
     def test_main_parse_error_exits_1(self, tmp_path, monkeypatch, capsys):
         """ParseError causes exit with code 1."""
@@ -174,3 +175,51 @@ class TestAbcCli:
         captured = capsys.readouterr()
         assert "Warning 1: something" in captured.err
         assert "Warning 2: something else" in captured.err
+
+    def test_main_with_transpose_flag(self, tmp_path, monkeypatch, capsys):
+        """Transpose flag is passed to to_abc_string."""
+        input_file = tmp_path / "song.songml"
+        output_file = tmp_path / "song.abc"
+        input_file.write_text("Title: Test\n\n[Verse - 1 bars]\n| C |")
+
+        fake_doc = MagicMock()
+        fake_doc.warnings = []
+        mock_parse = Mock(return_value=fake_doc)
+        mock_to_abc_string = Mock(return_value="X:1\nT:Test\n")
+
+        monkeypatch.setattr("songml_utils.abc_cli.parse_songml", mock_parse)
+        monkeypatch.setattr("songml_utils.abc_exporter.to_abc_string", mock_to_abc_string)
+        monkeypatch.setattr(
+            "sys.argv", ["songml-to-abc", str(input_file), str(output_file), "-t", "7"]
+        )
+
+        main()
+
+        # Verify to_abc_string was called with transpose=7
+        mock_to_abc_string.assert_called_once()
+        kwargs = mock_to_abc_string.call_args[1]
+        assert kwargs["transpose"] == 7
+
+    def test_main_with_transpose_long_form(self, tmp_path, monkeypatch, capsys):
+        """Long form --transpose flag works correctly."""
+        input_file = tmp_path / "song.songml"
+        output_file = tmp_path / "song.abc"
+        input_file.write_text("Title: Test\n\n[Verse - 1 bars]\n| C |")
+
+        fake_doc = MagicMock()
+        fake_doc.warnings = []
+        mock_parse = Mock(return_value=fake_doc)
+        mock_to_abc_string = Mock(return_value="X:1\nT:Test\n")
+
+        monkeypatch.setattr("songml_utils.abc_cli.parse_songml", mock_parse)
+        monkeypatch.setattr("songml_utils.abc_exporter.to_abc_string", mock_to_abc_string)
+        monkeypatch.setattr(
+            "sys.argv", ["songml-to-abc", str(input_file), str(output_file), "--transpose", "-5"]
+        )
+
+        main()
+
+        # Verify to_abc_string was called with transpose=-5
+        mock_to_abc_string.assert_called_once()
+        kwargs = mock_to_abc_string.call_args[1]
+        assert kwargs["transpose"] == -5

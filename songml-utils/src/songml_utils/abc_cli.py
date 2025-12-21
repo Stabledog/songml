@@ -27,6 +27,14 @@ def main() -> None:
         default="chordline",
         help="chord rendering style (default: chordline)",
     )
+    parser.add_argument(
+        "-t",
+        "--transpose",
+        type=int,
+        default=0,
+        metavar="SEMITONES",
+        help="transpose by semitones (positive = up, negative = down, default: 0)",
+    )
 
     args = parser.parse_args()
     input_file = args.input
@@ -47,7 +55,7 @@ def main() -> None:
         from .abc_exporter import to_abc_string
 
         abc_text = to_abc_string(
-            doc, unit_note_length=args.unit_length, chord_style=args.chord_style
+            doc, unit_note_length=args.unit_length, chord_style=args.chord_style, transpose=args.transpose
         )
 
         # Output to file or stdout

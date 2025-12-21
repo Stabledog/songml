@@ -38,11 +38,11 @@ class TestMidiCli:
         # Verify export was called with voicings_path=None (no local file)
         mock_export.assert_called_once()
         args = mock_export.call_args[0]
+        kwargs = mock_export.call_args[1]
         assert args[0] == fake_doc  # doc
         assert args[1] == str(output_file)  # output path
-        assert mock_export.call_args[1] == {} or (
-            mock_export.call_args[0][2] is None
-        )  # voicings_path=None
+        assert args[2] is None  # voicings_path=None
+        assert kwargs["transpose"] == 0  # default transpose
 
         # Verify success message in stderr
         captured = capsys.readouterr()
@@ -73,7 +73,9 @@ class TestMidiCli:
         # Verify export was called with the local voicings path
         mock_export.assert_called_once()
         args = mock_export.call_args[0]
+        kwargs = mock_export.call_args[1]
         assert args[2] == str(local_voicings)  # voicings_path should be local file
+        assert kwargs["transpose"] == 0  # default transpose
 
     def test_main_parse_error_exits_1(self, tmp_path, monkeypatch, capsys):
         """ParseError causes exit with code 1."""
@@ -128,3 +130,49 @@ class TestMidiCli:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "✗ File error:" in captured.err
+
+    def test_main_with_transpose_flag(self, tmp_path, monkeypatch, capsys):
+        """Transpose flag is passed to export_midi."""
+        input_file = tmp_path / "song.songml"
+        output_file = tmp_path / "song.mid"
+        input_file.write_text("Title: Test\n\n[Verse - 1 bars]\n| C |")
+
+        fake_doc = MagicMock()
+        mock_parse = Mock(return_value=fake_doc)
+        mock_export = Mock()
+
+        monkeypatch.setattr("songml_utils.midi_cli.parse_songml", mock_parse)
+        monkeypatch.setattr("songml_utils.midi_cli.export_midi", mock_export)
+        monkeypatch.setattr(
+            "sys.argv", ["songml-to-midi", str(input_file), str(output_file), "-t", "5"]
+        )
+
+        main()
+
+        # Verify export was called with transpose=5
+        mock_export.assert_called_once()
+        kwargs = mock_export.call_args[1]
+        assert kwargs["transpose"] == 5
+
+    def test_main_with_transpose_negative(self, tmp_path, monkeypatch, capsys):
+        """Negative transpose flag is passed correctly."""
+        input_file = tmp_path / "song.songml"
+        output_file = tmp_path / "song.mid"
+        input_file.write_text("Title: Test\n\n[Verse - 1 bars]\n| C |")
+
+        fake_doc = MagicMock()
+        mock_parse = Mock(return_value=fake_doc)
+        mock_export = Mock()
+
+        monkeypatch.setattr("songml_utils.midi_cli.parse_songml", mock_parse)
+        monkeypatch.setattr("songml_utils.midi_cli.export_midi", mock_export)
+        monkeypatch.setattr(
+            "sys.argv", ["songml-to-midi", str(input_file), str(output_file), "--transpose", "-12"]
+        )
+
+        main()
+
+        # Verify export was called with transpose=-12
+        mock_export.assert_called_once()
+        kwargs = mock_export.call_args[1]
+        assert kwargs["transpose"] == -12

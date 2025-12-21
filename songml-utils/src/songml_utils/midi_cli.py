@@ -20,6 +20,14 @@ def main() -> None:
     )
     parser.add_argument("input", metavar="INPUT", help="input SongML file")
     parser.add_argument("output", metavar="OUTPUT", help="output MIDI file")
+    parser.add_argument(
+        "-t",
+        "--transpose",
+        type=int,
+        default=0,
+        metavar="SEMITONES",
+        help="transpose by semitones (positive = up, negative = down, default: 0)",
+    )
 
     args = parser.parse_args()
     input_file = args.input
@@ -36,7 +44,7 @@ def main() -> None:
         local_voicings = os.path.join(input_dir, "chord_voicings.tsv")
         voicings_path = local_voicings if os.path.exists(local_voicings) else None
 
-        export_midi(doc, output_file, voicings_path)
+        export_midi(doc, output_file, voicings_path, transpose=args.transpose)
 
         print(f"✓ Exported to {output_file}", file=sys.stderr)
 

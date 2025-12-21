@@ -131,13 +131,14 @@ def get_voicing_table() -> VoicingTable:
     return _VOICING_TABLE
 
 
-def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE) -> list[int]:
+def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE, transpose: int = 0) -> list[int]:
     """
     Get MIDI note numbers for a chord symbol.
 
     Args:
         chord_symbol: Exact chord symbol (e.g., "Cmaj7", "F9/A")
         root_octave: Octave for root note (default 4 = C4=60)
+        transpose: Semitones to transpose (default 0, positive = up, negative = down)
 
     Returns:
         List of MIDI note numbers
@@ -173,5 +174,9 @@ def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE) -> li
     if bass_note:
         bass_midi = NOTE_TO_MIDI[bass_note] + (root_octave * 12)
         notes = [bass_midi] + notes
+
+    # Apply transpose offset
+    if transpose != 0:
+        notes = [note + transpose for note in notes]
 
     return notes
