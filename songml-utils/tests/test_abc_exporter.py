@@ -253,7 +253,7 @@ Time: 4/4
 
 
 def test_lyrics_alignment():
-    """Test lyrics in ABC output."""
+    """Test lyrics aligned to note positions."""
     content = """
 Time: 4/4
 
@@ -265,10 +265,136 @@ Time: 4/4
     doc = parse_songml(content)
     abc = to_abc_string(doc)
 
-    # Check lyrics line is present
-    assert "w:" in abc
-    assert "Hello" in abc
-    assert "wonderful" in abc or "world" in abc
+    # Bar 0: 1 chord (C) → 1 note → 1 syllable: "Hello"
+    # Bar 1: 2 chords (F, G) → 2 notes → 2 syllables: "wonderful", "world"
+    # Expected: "w: Hello wonderful world"
+    assert "w: Hello wonderful world" in abc
+
+
+def test_lyrics_more_words_than_notes():
+    """Test lyrics when bar has more words than notes."""
+    content = """
+Time: 4/4
+
+[Chorus - 1 bars]
+| 0 |
+| Am |
+| way of sayin what you wanna say |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # Bar has 1 chord/note but 7 words
+    # All words should be joined with ~ under the single note
+    assert "w: way~of~sayin~what~you~wanna~say" in abc
+
+
+def test_lyrics_fewer_words_than_notes():
+    """Test lyrics when bar has fewer words than notes."""
+    content = """
+Time: 4/4
+
+[Verse - 1 bars]
+| 0 |
+| C F G Am |
+| Hello world |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # Bar has 4 chords/notes but only 2 words
+    # Should output: Hello world * *
+    assert "w: Hello world * *" in abc
+
+
+def test_lyrics_distribution_from_end():
+    """Test that excess words are distributed backward from end."""
+    content = """
+Time: 4/4
+
+[Verse - 1 bars]
+| 0 |
+| C F G |
+| You've got a way I just knew |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # 3 notes, 7 words: last 2 words go to last 2 notes
+    # First note gets remaining 5 words joined
+    # Expected: "You've~got~a~way~I just knew"
+    assert "w: You've~got~a~way~I just knew" in abc
+
+
+def test_lyrics_multiple_bars_mixed():
+    """Test lyric alignment across multiple bars with different patterns."""
+    content = """
+Time: 4/4
+
+[Verse - 3 bars]
+| 0 | 1 | 2 |
+| C | F G | Am |
+| Hello | wonderful world | happy days are here again |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # Bar 0: 1 note, 1 word → "Hello"
+    # Bar 1: 2 notes, 2 words → "wonderful world"
+    # Bar 2: 1 note, 5 words → "happy~days~are~here~again"
+    assert "w: Hello wonderful world happy~days~are~here~again" in abc
+
+
+def test_lyrics_no_lyrics_bar():
+    """Test bars without lyrics use * placeholder."""
+    content = """
+Time: 4/4
+
+[Verse - 2 bars]
+| 0 | 1 |
+| C | F G |
+| Hello | |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # Bar 0: 1 note, 1 word → "Hello"
+    # Bar 1: 2 notes, no lyrics → "* *"
+    assert "w: Hello * *" in abc
+
+
+def test_lyrics_all_bars_empty():
+    """Test that bars with no lyrics produce no w: line."""
+    content = """
+Time: 4/4
+
+[Verse - 2 bars]
+| 0 | 1 |
+| C | F G |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # No lyrics anywhere, should not have w: line
+    assert "w:" not in abc
+
+
+def test_lyrics_empty_bar_with_no_chords():
+    """Test that empty bars (no chords) get proper placeholder."""
+    content = """
+Time: 4/4
+
+[Verse - 2 bars]
+| 0 | 1 |
+|   | C |
+| Hello | world |
+"""
+    doc = parse_songml(content)
+    abc = to_abc_string(doc)
+
+    # Bar 0: no chords = 1 rest note, 1 word → "Hello"
+    # Bar 1: 1 chord, 1 word → "world"
+    assert "w: Hello world" in abc
 
 
 def test_slash_chord_passthrough():

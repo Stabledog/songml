@@ -315,33 +315,61 @@ def _midi_to_abc_note(midi_note: int) -> str:
 
 
 def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:
-    """Format lyrics line for a group of bars."""
+    """
+    Format lyrics line for a group of bars, aligned to notes.
+    
+    Each space-separated token in ABC lyrics aligns with one note.
+    Strategy:
+    - words == notes: one word per note
+    - words < notes: pad with * placeholders
+    - words > notes: distribute from end backward, first note gets remaining words joined with ~
+    """
     lyrics_parts: list[str] = []
 
     for bar in bars:
+        # Count notes in this bar (one per chord, or 1 rest if empty)
+        note_count = len(bar.chords) if bar.chords else 1
+        
         if bar.lyrics:
-            # Split lyrics into words/syllables
             words = bar.lyrics.split()
-
-            # If bar has multiple chords, distribute lyrics across them
-            if bar.chords:
-                # Simple strategy: assign words to chords evenly
-                # For now, just join all words with hyphens if multiple chords
-                if len(bar.chords) > 1:
-                    # Distribute words across chord positions
-                    lyrics_parts.extend(words)
-                else:
-                    # Single chord: put all lyrics under it
-                    lyrics_parts.append(" ".join(words))
+            word_count = len(words)
+            
+            if word_count == note_count:
+                # Perfect match: one word per note
+                lyrics_parts.extend(words)
+            elif word_count < note_count:
+                # More notes than words: words + padding
+                lyrics_parts.extend(words)
+                lyrics_parts.extend(['*'] * (note_count - word_count))
             else:
-                # No chords: still include lyrics
-                lyrics_parts.append(" ".join(words))
+                # More words than notes: distribute from end backward
+                # Last (note_count - 1) words go to last (note_count - 1) notes
+                # First note gets all remaining words joined with ~
+                bar_tokens: list[str] = []
+                
+                if note_count == 1:
+                    # Single note: join all words
+                    bar_tokens.append('~'.join(words))
+                else:
+                    # Multiple notes: assign from end
+                    remaining_words = words[:]
+                    
+                    # Take last (note_count - 1) words for last (note_count - 1) notes
+                    last_tokens = []
+                    for _ in range(note_count - 1):
+                        last_tokens.insert(0, remaining_words.pop())
+                    
+                    # First note gets all remaining words joined
+                    first_token = '~'.join(remaining_words)
+                    bar_tokens = [first_token] + last_tokens
+                
+                lyrics_parts.extend(bar_tokens)
         else:
-            # No lyrics for this bar: use underscore for continuation
-            lyrics_parts.append("_")
+            # No lyrics: emit * for each note
+            lyrics_parts.extend(['*'] * note_count)
 
-    if not any(part != "_" for part in lyrics_parts):
-        # All underscores: no actual lyrics
+    # Check if we have any real lyrics (not just * placeholders)
+    if not any(part != '*' for part in lyrics_parts):
         return ""
 
     return "w: " + " ".join(lyrics_parts)
