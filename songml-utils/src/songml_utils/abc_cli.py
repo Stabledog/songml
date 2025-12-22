@@ -55,7 +55,10 @@ def main() -> None:
         from .abc_exporter import to_abc_string
 
         abc_text = to_abc_string(
-            doc, unit_note_length=args.unit_length, chord_style=args.chord_style, transpose=args.transpose
+            doc,
+            unit_note_length=args.unit_length,
+            chord_style=args.chord_style,
+            transpose=args.transpose,
         )
 
         # Output to file or stdout

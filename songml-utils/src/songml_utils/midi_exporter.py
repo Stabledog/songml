@@ -24,7 +24,9 @@ type MidiEvent = tuple[int, str, list[int]]
 type MidiEvents = list[MidiEvent]
 
 
-def export_midi(doc: Document, output_path: str, voicings_path: str | None = None, transpose: int = 0) -> None:
+def export_midi(
+    doc: Document, output_path: str, voicings_path: str | None = None, transpose: int = 0
+) -> None:
     """
     Export SongML AST to MIDI file.
 
@@ -107,7 +109,9 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
 
                 # Get MIDI notes for this chord
                 try:
-                    notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=transpose)
+                    notes = get_chord_notes(
+                        chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=transpose
+                    )
                 except ValueError as e:
                     raise ValueError(
                         f'Error at section "{section.name}", bar {bar.number}, beat {chord_token.start_beat}: {e}'
@@ -118,11 +122,17 @@ def export_midi(doc: Document, output_path: str, voicings_path: str | None = Non
                 for note in notes:
                     if note < 0 or note > 127:
                         # Log detailed error for this dropped note
-                        original_notes = get_chord_notes(chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=0)
+                        original_notes = get_chord_notes(
+                            chord_token.text, root_octave=DEFAULT_ROOT_OCTAVE, transpose=0
+                        )
                         # Find which original note this corresponds to
                         note_index = notes.index(note)
-                        original_midi = original_notes[note_index] if note_index < len(original_notes) else note - transpose
-                        
+                        original_midi = (
+                            original_notes[note_index]
+                            if note_index < len(original_notes)
+                            else note - transpose
+                        )
+
                         logging.error(
                             f"Dropped MIDI note {note} (original {original_midi}) for chord '{chord_token.text}' "
                             f"at section '{section.name}', bar {bar.number}, beat {chord_token.start_beat}: "

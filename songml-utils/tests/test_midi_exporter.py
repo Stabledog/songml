@@ -478,7 +478,9 @@ Time: 4/4
         # G chord: 4 notes (G3 bass, G4, B4, D5)
         # F chord: 4 notes (F3 bass, F4, A4, C5)
         # Total: 4 + 4 + 4 = 12 note pairs
-        assert len(note_durations) == 12, f"Expected 12 note on/off pairs, got {len(note_durations)}"
+        assert len(note_durations) == 12, (
+            f"Expected 12 note on/off pairs, got {len(note_durations)}"
+        )
 
         # All durations should be either 1920 (4 beats for C) or 960 (2 beats for G/F)
         for note, duration in note_durations:
@@ -605,6 +607,7 @@ def test_project_local_voicings(tmp_path):
     finally:
         # Restore the default voicing table
         from songml_utils.chord_voicings import reload_voicing_table
+
         reload_voicing_table()
         if os.path.exists(output_file):
             os.remove(output_file)

@@ -131,7 +131,9 @@ def get_voicing_table() -> VoicingTable:
     return _VOICING_TABLE
 
 
-def get_chord_notes(chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE, transpose: int = 0) -> list[int]:
+def get_chord_notes(
+    chord_symbol: str, root_octave: int = MIDDLE_C_OCTAVE, transpose: int = 0
+) -> list[int]:
     """
     Get MIDI note numbers for a chord symbol.
 

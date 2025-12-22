@@ -35,7 +35,10 @@ def get_chord_voicing(chord_symbol: str, transpose: int = 0) -> list[int]:
 
 
 def to_abc_string(
-    doc: Document, unit_note_length: str | None = None, chord_style: str = "chordline", transpose: int = 0
+    doc: Document,
+    unit_note_length: str | None = None,
+    chord_style: str = "chordline",
+    transpose: int = 0,
 ) -> str:
     """
     Convert SongML Document to ABC notation string.
@@ -198,7 +201,9 @@ def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     return numerator, denominator
 
 
-def _format_section(section: Section, beats_per_bar: int, denominator: int, transpose: int = 0) -> list[str]:
+def _format_section(
+    section: Section, beats_per_bar: int, denominator: int, transpose: int = 0
+) -> list[str]:
     """Format a section with bars, chords, and lyrics."""
     lines: list[str] = []
 
@@ -220,7 +225,9 @@ def _format_section(section: Section, beats_per_bar: int, denominator: int, tran
     return lines
 
 
-def _format_bar_group_chords(bars: list[Bar], beats_per_bar: int, denominator: int, transpose: int = 0) -> str:
+def _format_bar_group_chords(
+    bars: list[Bar], beats_per_bar: int, denominator: int, transpose: int = 0
+) -> str:
     """Format a group of bars as ABC chord notation."""
     bar_strs: list[str] = []
 
@@ -317,7 +324,7 @@ def _midi_to_abc_note(midi_note: int) -> str:
 def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: int) -> str:
     """
     Format lyrics line for a group of bars, aligned to notes.
-    
+
     Each space-separated token in ABC lyrics aligns with one note.
     Strategy:
     - words == notes: one word per note
@@ -329,47 +336,47 @@ def _format_bar_group_lyrics(bars: list[Bar], beats_per_bar: int, denominator: i
     for bar in bars:
         # Count notes in this bar (one per chord, or 1 rest if empty)
         note_count = len(bar.chords) if bar.chords else 1
-        
+
         if bar.lyrics:
             words = bar.lyrics.split()
             word_count = len(words)
-            
+
             if word_count == note_count:
                 # Perfect match: one word per note
                 lyrics_parts.extend(words)
             elif word_count < note_count:
                 # More notes than words: words + padding
                 lyrics_parts.extend(words)
-                lyrics_parts.extend(['*'] * (note_count - word_count))
+                lyrics_parts.extend(["*"] * (note_count - word_count))
             else:
                 # More words than notes: distribute from end backward
                 # Last (note_count - 1) words go to last (note_count - 1) notes
                 # First note gets all remaining words joined with ~
                 bar_tokens: list[str] = []
-                
+
                 if note_count == 1:
                     # Single note: join all words
-                    bar_tokens.append('~'.join(words))
+                    bar_tokens.append("~".join(words))
                 else:
                     # Multiple notes: assign from end
                     remaining_words = words[:]
-                    
+
                     # Take last (note_count - 1) words for last (note_count - 1) notes
                     last_tokens = []
                     for _ in range(note_count - 1):
                         last_tokens.insert(0, remaining_words.pop())
-                    
+
                     # First note gets all remaining words joined
-                    first_token = '~'.join(remaining_words)
+                    first_token = "~".join(remaining_words)
                     bar_tokens = [first_token] + last_tokens
-                
+
                 lyrics_parts.extend(bar_tokens)
         else:
             # No lyrics: emit * for each note
-            lyrics_parts.extend(['*'] * note_count)
+            lyrics_parts.extend(["*"] * note_count)
 
     # Check if we have any real lyrics (not just * placeholders)
-    if not any(part != '*' for part in lyrics_parts):
+    if not any(part != "*" for part in lyrics_parts):
         return ""
 
     return "w: " + " ".join(lyrics_parts)
