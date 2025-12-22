@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
-from unittest.mock import Mock
 
-import pytest
 from mido import MidiFile
 
 from songml_utils.chord_voicings import get_chord_notes
