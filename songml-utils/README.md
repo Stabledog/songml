@@ -5,7 +5,7 @@ Python utilities for working with SongML files - a relaxed, forgiving format for
 ## Installation
 
 ```bash
-pip install songml-utils
+pip install songml-utils --user
 ```
 
 ## CLI Commands

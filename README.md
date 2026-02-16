@@ -11,7 +11,7 @@ After cloning the repository:
 
 ```bash
 cd songml-utils
-pip install -e ".[dev]"
+pip install -e ".[dev]" --user
 pre-commit install
 ```
 
