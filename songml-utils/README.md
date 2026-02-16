@@ -1,11 +1,10 @@
 # SongML Utils
-
 Python utilities for working with SongML files - a relaxed, forgiving format for notating music like a musician's leadsheet.
 
 ## Installation
 
 ```bash
-pip install songml-utils --user
+pip install songml-utils --break-system-packages --user
 ```
 
 ## CLI Commands
