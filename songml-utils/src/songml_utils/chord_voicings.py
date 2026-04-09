@@ -108,6 +108,7 @@ def load_voicing_table(tsv_path: str | None = None) -> VoicingTable:
 
 # Global voicing table - loaded once at module import, can be reloaded
 _VOICING_TABLE: VoicingTable = load_voicing_table()
+_VOICING_TABLE_PATH: str = next(iter(_VOICING_TABLE.values()))[2] if _VOICING_TABLE else ""
 
 
 def reload_voicing_table(tsv_path: str | None = None) -> None:
@@ -117,8 +118,9 @@ def reload_voicing_table(tsv_path: str | None = None) -> None:
     Args:
         tsv_path: Path to TSV file (None = use default)
     """
-    global _VOICING_TABLE
+    global _VOICING_TABLE, _VOICING_TABLE_PATH
     _VOICING_TABLE = load_voicing_table(tsv_path)
+    _VOICING_TABLE_PATH = next(iter(_VOICING_TABLE.values()))[2] if _VOICING_TABLE else ""
 
 
 def get_voicing_table() -> VoicingTable:
@@ -160,7 +162,9 @@ def get_chord_notes(
 
     # Lookup chord voicing
     if base_chord not in _VOICING_TABLE:
-        raise ValueError(f'Unknown chord symbol "{base_chord}" (not in voicing table)')
+        raise ValueError(
+            f'Unknown chord symbol "{base_chord}" (not in voicing table: {_VOICING_TABLE_PATH})'
+        )
 
     root_note, offsets, _source_path, _line_num = _VOICING_TABLE[base_chord]
 

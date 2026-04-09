@@ -23,6 +23,8 @@ songml-inspect-midi = "songml_utils.midi_inspector_cli:main"
 songml-to-abc = "songml_utils.abc_cli:main"
 songml-serve = "songml_utils.web_server:main"
 songml-bashcompletion = "songml_utils.bashcompletion:main"
+als-extract = "songml_utils.als_cli:main"
+chords-to-midi = "songml_utils.chords_midi_cli:main"
 
 [project.optional-dependencies]
 dev = [
