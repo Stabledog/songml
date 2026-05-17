@@ -70,7 +70,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         try:
             doc = parse_songml(target.read_text(encoding="utf-8"))
-            rendered = to_html_string(doc, bars_per_row=self.__class__.bars_per_row)
+            rendered = to_html_string(doc, bars_per_row=self.__class__.bars_per_row, back_url="/")
             self._send(200, "text/html; charset=utf-8", rendered.encode())
         except ParseError as e:
             self._send(400, "text/plain", str(e).encode())

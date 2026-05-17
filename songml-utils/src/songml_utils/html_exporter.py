@@ -21,6 +21,7 @@ _CSS = """\
 *,*::before,*::after{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,sans-serif;background:#e8e8e8;margin:0;padding:1rem;color:#111}
 .song{max-width:1500px;margin:0 auto}
+.back-link{display:block;font-size:.85rem;margin-bottom:.6rem}
 h1{font-size:1.8rem;margin:0 0 .2rem}
 .meta{color:#555;font-size:.9rem;margin-bottom:1.25rem}
 .strip{margin-bottom:.6rem;border:1px solid #bbb;border-radius:4px;overflow:hidden}
@@ -56,13 +57,14 @@ a:hover{text-decoration:underline}
 """
 
 
-def to_html_string(doc: Document, bars_per_row: int = 8) -> str:
+def to_html_string(doc: Document, bars_per_row: int = 8, back_url: str | None = None) -> str:
     title = _prop(doc, "Title", "Untitled")
     key = _prop(doc, "Key", "")
     tempo = _prop(doc, "Tempo", "")
     time_sig = _prop(doc, "Time", "4/4")
     beats_per_bar = int(time_sig.split("/")[0])
     cols_per_bar = beats_per_bar * 2  # half-beat column resolution
+    max_cols = bars_per_row * cols_per_bar  # fixed grid width so all bars are equal-width
 
     sections = [item for item in doc.items if isinstance(item, Section)]
 
@@ -75,7 +77,7 @@ def to_html_string(doc: Document, bars_per_row: int = 8) -> str:
             if not row_bars:
                 continue
             label = section.name if row_start == 0 else ""
-            strips.append(_render_strip(row_bars, label, cols_per_bar, color))
+            strips.append(_render_strip(row_bars, label, cols_per_bar, color, max_cols))
 
     meta_parts = [p for p in [
         f"Key: {key}" if key else "",
@@ -84,6 +86,10 @@ def to_html_string(doc: Document, bars_per_row: int = 8) -> str:
     ] if p]
 
     t = _html.escape(title)
+    back_html = (
+        f'<a class="back-link" href="{_html.escape(back_url)}">&larr; Library</a>'
+        if back_url else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,6 +100,7 @@ def to_html_string(doc: Document, bars_per_row: int = 8) -> str:
 </head>
 <body>
 <div class="song">
+{back_html}
 <h1>{t}</h1>
 <div class="meta">{" &bull; ".join(meta_parts)}</div>
 {"".join(strips)}
@@ -102,9 +109,8 @@ def to_html_string(doc: Document, bars_per_row: int = 8) -> str:
 </html>"""
 
 
-def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str) -> str:
-    total_cols = len(bars) * cols_per_bar
-    gs = f"grid-template-columns:repeat({total_cols},1fr)"
+def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str, max_cols: int) -> str:
+    gs = f"grid-template-columns:repeat({max_cols},1fr)"
     parts: list[str] = []
 
     if label:
@@ -129,8 +135,9 @@ def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str) ->
             span = max(1, int(round(chord.duration_beats * 2)))
             bar_start_cls = " bar-start" if j == 0 and i > 0 else ""
             text = "" if chord.text in ("...", ".") else _html.escape(chord.text)
+            tip = _html.escape(chord.text)
             cells.append(
-                f'<div class="chord{bar_start_cls}" style="grid-column:{col}/span {span}">'
+                f'<div class="chord{bar_start_cls}" title="{tip}" style="grid-column:{col}/span {span}">'
                 f"{text}</div>"
             )
     parts.append(f'<div class="grid-row chords-row" style="{gs}">{"".join(cells)}</div>')
@@ -142,12 +149,17 @@ def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str) ->
             col = i * cols_per_bar + 1
             lyric = _html.escape(bar.lyrics or "")
             cells.append(
-                f'<div class="lyric" style="grid-column:{col}/span {cols_per_bar}">'
+                f'<div class="lyric" title="{lyric}" style="grid-column:{col}/span {cols_per_bar}">'
                 f"{lyric}</div>"
             )
         parts.append(f'<div class="grid-row lyrics-row" style="{gs}">{"".join(cells)}</div>')
 
-    return f'<div class="strip" style="background:{color}">{"".join(parts)}</div>\n'
+    used_pct = len(bars) * cols_per_bar / max_cols * 100
+    if used_pct >= 100:
+        bg = color
+    else:
+        bg = f"linear-gradient(to right,{color} {used_pct:.4f}%,#d0d0d0 {used_pct:.4f}%)"
+    return f'<div class="strip" style="background:{bg}">{"".join(parts)}</div>\n'
 
 
 def _prop(doc: Document, name: str, default: str) -> str:
