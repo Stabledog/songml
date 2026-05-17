@@ -26,6 +26,7 @@ def _make_request(handler_cls, method: str, path: str) -> tuple[int, str]:
     handler.end_headers = Mock()
     handler.wfile = BytesIO()
     handler.path = path
+    handler.command = method
     handler.log_date_time_string = Mock(return_value="00:00:00")
 
     getattr(handler, f"do_{method}")()
@@ -107,7 +108,7 @@ class TestUnknownRoute:
 
 class TestCLI:
     def test_main_prints_url(self, tmp_path, capsys):
-        with patch("songml_utils.web_server.HTTPServer") as mock_cls:
+        with patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls:
             mock_srv = Mock()
             mock_cls.return_value = mock_srv
             mock_srv.serve_forever.side_effect = KeyboardInterrupt()
@@ -119,7 +120,7 @@ class TestCLI:
         assert "http://localhost:8000" in capsys.readouterr().out
 
     def test_main_custom_port(self, tmp_path, capsys):
-        with patch("songml_utils.web_server.HTTPServer") as mock_cls:
+        with patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls:
             mock_srv = Mock()
             mock_cls.return_value = mock_srv
             mock_srv.serve_forever.side_effect = KeyboardInterrupt()

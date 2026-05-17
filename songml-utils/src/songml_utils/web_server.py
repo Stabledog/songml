@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -37,6 +37,9 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_song(path[len("/song/") :])
         else:
             self._send(404, "text/plain", b"Not found")
+
+    def do_HEAD(self):
+        self.do_GET()
 
     def _serve_index(self):
         files = sorted(self.__class__.root.rglob("*.songml"))
@@ -79,7 +82,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
 
 def _make_handler(root: Path, bars_per_row: int) -> type[_Handler]:
@@ -107,7 +111,7 @@ def main() -> int:
         return 1
 
     handler = _make_handler(root, args.bars_per_row)
-    server = HTTPServer(("0.0.0.0", args.port), handler)
+    server = ThreadingHTTPServer(("0.0.0.0", args.port), handler)
     print(f"SongML server:  http://localhost:{args.port}/")
     print(f"Serving files:  {root}")
     print("Press Ctrl+C to stop.")
