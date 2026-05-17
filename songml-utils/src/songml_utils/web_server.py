@@ -1,188 +1,123 @@
-"""Web server for viewing SongML and ABC files with abcjs player."""
+"""LAN web server for viewing SongML files as beat-grid chord charts."""
+
+from __future__ import annotations
 
 import argparse
-import json
-import os
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from .abc_exporter import to_abc_string
+from .html_exporter import _CSS, to_html_string
 from .parser import ParseError, parse_songml
 
+_INDEX_CSS = (
+    _CSS
+    + """
+body{padding:2rem}
+h1{margin-bottom:1rem}
+ul{list-style:none;padding:0;margin:0}
+li{margin:.4rem 0;font-size:1rem}
+"""
+)
 
-class ViewerHTTPRequestHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for ABC viewer service."""
 
-    def log_message(self, format, *args):
-        """Override to customize logging format."""
+class _Handler(BaseHTTPRequestHandler):
+    root: Path
+    bars_per_row: int
+
+    def log_message(self, format, *args):  # noqa: A002
         sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
 
     def do_GET(self):
-        """Handle GET requests."""
-        path = unquote(self.path)
-
+        path = unquote(self.path).split("?")[0]
         if path == "/":
-            self._serve_viewer()
-        elif path == "/api/files":
-            self._serve_file_list()
-        elif path.startswith("/api/abc/"):
-            file_path = path[9:]  # Remove "/api/abc/" prefix
-            self._serve_abc(file_path)
+            self._serve_index()
+        elif path.startswith("/song/"):
+            self._serve_song(path[len("/song/") :])
         else:
-            self._send_error(404, "Not Found")
+            self._send(404, "text/plain", b"Not found")
 
-    def _serve_viewer(self):
-        """Serve the HTML viewer page."""
+    def _serve_index(self):
+        files = sorted(self.__class__.root.rglob("*.songml"))
+        items = "".join(
+            f'<li><a href="/song/{f.relative_to(self.__class__.root)}">'
+            f"{f.relative_to(self.__class__.root)}</a></li>"
+            for f in files
+        )
+        body = (
+            f'<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+            f"<title>SongML Library</title>"
+            f"<style>{_INDEX_CSS}</style></head>"
+            f"<body><div class='song'><h1>SongML Library</h1>"
+            f"<ul>{items}</ul></div></body></html>"
+        )
+        self._send(200, "text/html; charset=utf-8", body.encode())
+
+    def _serve_song(self, rel_path: str):
+        base = self.__class__.root.resolve()
+        target = (base / rel_path).resolve()
         try:
-            viewer_path = os.path.join(os.path.dirname(__file__), "data", "viewer.html")
-            with open(viewer_path, encoding="utf-8") as f:
-                content = f.read()
-
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(content.encode("utf-8"))))
-            self.end_headers()
-            self.wfile.write(content.encode("utf-8"))
-        except FileNotFoundError:
-            self._send_error(500, "Viewer HTML not found")
-
-    def _serve_file_list(self):
-        """Serve list of .songml and .abc files in CWD and subdirectories."""
+            target.relative_to(base)
+        except ValueError:
+            self._send(403, "text/plain", b"Access denied")
+            return
+        if not target.exists() or not target.is_file():
+            self._send(404, "text/plain", f"Not found: {rel_path}".encode())
+            return
         try:
-            base_path = Path.cwd()
-            files = []
-
-            # Find all .songml and .abc files recursively
-            for pattern in ("*.songml", "*.abc"):
-                for file_path in base_path.rglob(pattern):
-                    if file_path.is_file():
-                        try:
-                            relative_path = file_path.relative_to(base_path)
-                            file_type = "songml" if file_path.suffix == ".songml" else "abc"
-                            files.append(
-                                {
-                                    "path": str(relative_path).replace("\\", "/"),
-                                    "type": file_type,
-                                    "name": file_path.name,
-                                }
-                            )
-                        except (ValueError, OSError) as e:
-                            # Skip files we can't process
-                            sys.stderr.write(f"Warning: Skipping {file_path}: {e}\n")
-
-            # Sort by path
-            files.sort(key=lambda f: f["path"])
-
-            response = json.dumps(files, indent=2)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(response.encode("utf-8"))))
-            self.end_headers()
-            self.wfile.write(response.encode("utf-8"))
-
+            doc = parse_songml(target.read_text(encoding="utf-8"))
+            rendered = to_html_string(doc, bars_per_row=self.__class__.bars_per_row)
+            self._send(200, "text/html; charset=utf-8", rendered.encode())
+        except ParseError as e:
+            self._send(400, "text/plain", str(e).encode())
         except Exception as e:
-            self._send_error(500, f"Error listing files: {e}")
+            self._send(500, "text/plain", str(e).encode())
 
-    def _serve_abc(self, file_path):
-        """Serve ABC content, converting from .songml if needed."""
-        try:
-            # Prevent directory traversal attacks
-            base_path = Path.cwd().resolve()
-            requested_path = (base_path / file_path).resolve()
-
-            # Ensure the resolved path is under base_path
-            try:
-                requested_path.relative_to(base_path)
-            except ValueError:
-                self._send_error(403, "Access denied: path outside working directory")
-                return
-
-            if not requested_path.exists():
-                self._send_error(404, f"File not found: {file_path}")
-                return
-
-            if not requested_path.is_file():
-                self._send_error(400, f"Not a file: {file_path}")
-                return
-
-            # Read file content
-            with open(requested_path, encoding="utf-8") as f:
-                content = f.read()
-
-            # Convert .songml to ABC, or serve .abc directly
-            if requested_path.suffix == ".songml":
-                try:
-                    doc = parse_songml(content)
-
-                    # Include warnings in output if any
-                    warnings_text = ""
-                    if doc.warnings:
-                        warnings_text = "% Warnings:\n"
-                        for warning in doc.warnings:
-                            warnings_text += f"% - {warning}\n"
-                        warnings_text += "\n"
-
-                    abc_content = to_abc_string(doc)
-                    content = warnings_text + abc_content
-
-                except ParseError as e:
-                    self._send_error(400, f"Parse error in {file_path}:\n\n{str(e)}")
-                    return
-                except ValueError as e:
-                    self._send_error(400, f"Conversion error in {file_path}:\n\n{str(e)}")
-                    return
-
-            elif requested_path.suffix != ".abc":
-                self._send_error(400, f"Unsupported file type: {requested_path.suffix}")
-                return
-
-            # Send ABC content
-            self.send_response(200)
-            self.send_header("Content-Type", "text/vnd.abc; charset=utf-8")
-            self.send_header("Content-Length", str(len(content.encode("utf-8"))))
-            self.end_headers()
-            self.wfile.write(content.encode("utf-8"))
-
-        except Exception as e:
-            self._send_error(500, f"Error serving file: {e}")
-
-    def _send_error(self, code, message):
-        """Send an error response with plain text message."""
+    def _send(self, code: int, content_type: str, body: bytes):
         self.send_response(code)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(message.encode("utf-8"))))
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(message.encode("utf-8"))
+        self.wfile.write(body)
 
 
-def main():
-    """Run the ABC viewer web server."""
+def _make_handler(root: Path, bars_per_row: int) -> type[_Handler]:
+    class Handler(_Handler):
+        pass
+
+    Handler.root = root
+    Handler.bars_per_row = bars_per_row
+    return Handler
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Start a local web server for viewing SongML and ABC files"
+        description="Serve SongML files as chord charts over HTTP (LAN)"
     )
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port to run the server on (default: 8000)"
-    )
-
+    parser.add_argument("--root", default=".", help="Directory of .songml files (default: .)")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
+    parser.add_argument("--bars-per-row", type=int, default=8, metavar="N",
+                        help="Bars per display row (default: 8)")
     args = parser.parse_args()
 
-    server = None
+    root = Path(args.root).resolve()
+    if not root.is_dir():
+        print(f"Error: {root} is not a directory", file=sys.stderr)
+        return 1
+
+    handler = _make_handler(root, args.bars_per_row)
+    server = HTTPServer(("0.0.0.0", args.port), handler)
+    print(f"SongML server:  http://localhost:{args.port}/")
+    print(f"Serving files:  {root}")
+    print("Press Ctrl+C to stop.")
     try:
-        server = HTTPServer(("localhost", args.port), ViewerHTTPRequestHandler)
-        print(f"SongML ABC Viewer running at http://localhost:{args.port}/")
-        print("Press Ctrl+C to stop the server")
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down...")
-        return 0
-    except OSError as e:
-        print(f"Error starting server: {e}", file=sys.stderr)
-        return 1
+        print("\nShutting down.")
     finally:
-        if server:
-            server.server_close()
+        server.server_close()
+    return 0
 
 
 if __name__ == "__main__":

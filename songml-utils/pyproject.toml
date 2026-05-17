@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "songml-utils"
 version = "0.1.0"
 description = "Utilities for working with SongML files"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "mido>=1.3.0",
     "pychord>=1.2.2",
@@ -36,7 +36,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]
@@ -59,5 +59,5 @@ addopts = [
     "--cov-report=xml"
 ]
 
-[tool.setuptools.package-data]
-songml_utils = ["data/*.html", "data/*.tsv", "data/*.sh", "data/*.py", "data/templates/*.songml"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/songml_utils"]

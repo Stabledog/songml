@@ -8,7 +8,7 @@ All commands run from `songml-utils/`:
 
 ```bash
 # Install for development
-pip install -e ".[dev]" --break-system-packages --user
+pip install -e ".[dev]"
 
 # Run all tests
 pytest
@@ -65,7 +65,7 @@ Key modules in `songml-utils/src/songml_utils/`:
 
 ## Python Style
 
-Requires **Python 3.13+**. Use modern syntax:
+Requires **Python 3.12+**. Use modern syntax:
 
 - `type` keyword for type aliases (not `typing.TypeAlias`)
 - Built-in generics (`list[str]`, `dict[str, int]`) not `typing` imports
