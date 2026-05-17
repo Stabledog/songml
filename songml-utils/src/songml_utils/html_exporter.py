@@ -43,6 +43,7 @@ h1{font-size:1.8rem;margin:0 0 .2rem}
   display:flex;align-items:center
 }
 .chord.bar-start{border-left:2px solid rgba(0,0,0,.28)}
+.chord.dense{font-size:.72rem;white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
 .lyrics-row{}
 .lyric{
   font-size:.8rem;font-style:italic;color:#333;
@@ -134,10 +135,11 @@ def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str, ma
             col = bar_offset + int(round(chord.start_beat * 2)) + 1
             span = max(1, int(round(chord.duration_beats * 2)))
             bar_start_cls = " bar-start" if j == 0 and i > 0 else ""
+            dense_cls = " dense" if span <= 2 else ""
             text = "" if chord.text in ("...", ".") else _html.escape(chord.text)
             tip = _html.escape(chord.text)
             cells.append(
-                f'<div class="chord{bar_start_cls}" title="{tip}" style="grid-column:{col}/span {span}">'
+                f'<div class="chord{bar_start_cls}{dense_cls}" title="{tip}" style="grid-column:{col}/span {span}">'
                 f"{text}</div>"
             )
     parts.append(f'<div class="grid-row chords-row" style="{gs}">{"".join(cells)}</div>')
