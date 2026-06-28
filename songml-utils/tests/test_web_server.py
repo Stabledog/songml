@@ -36,6 +36,25 @@ def _make_request(handler_cls, method: str, path: str) -> tuple[int, str]:
     return status, body
 
 
+def _make_request_raw(handler_cls, method: str, path: str) -> tuple[int, bytes, list]:
+    """Invoke a handler method and return (status_code, body_bytes, send_header_calls)."""
+    handler = object.__new__(handler_cls)
+    handler.send_response = Mock()
+    handler.send_header = Mock()
+    handler.end_headers = Mock()
+    handler.wfile = BytesIO()
+    handler.path = path
+    handler.command = method
+    handler.log_date_time_string = Mock(return_value="00:00:00")
+
+    getattr(handler, f"do_{method}")()
+
+    status = handler.send_response.call_args[0][0]
+    body = handler.wfile.getvalue()
+    headers = [call.args for call in handler.send_header.call_args_list]
+    return status, body, headers
+
+
 class TestIndexPage:
     def test_lists_songml_files(self, tmp_path):
         (tmp_path / "alpha.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
@@ -97,6 +116,39 @@ class TestSongPage:
         assert status == 200
         assert "Cmaj" in body
         assert "120" in body
+
+
+class TestMidiEndpoint:
+    def test_generates_midi_for_valid_songml(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+
+        status, body, headers = _make_request_raw(handler_cls, "GET", "/midi/test.songml")
+
+        assert status == 200
+        assert body[:4] == b"MThd"  # MIDI magic bytes
+        assert ("Content-Type", "audio/midi") in headers
+        assert any(h[0] == "Content-Disposition" and "test.mid" in h[1] for h in headers)
+
+    def test_returns_404_for_missing_file(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, _, _ = _make_request_raw(handler_cls, "GET", "/midi/nonexistent.songml")
+        assert status == 404
+
+    def test_returns_403_for_path_traversal(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, _, _ = _make_request_raw(handler_cls, "GET", "/midi/../../etc/passwd")
+        assert status in (403, 404)
+
+    def test_song_page_contains_midi_button(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+
+        status, body = _make_request(handler_cls, "GET", "/song/test.songml")
+
+        assert status == 200
+        assert "/midi/test.songml" in body
+        assert "midi-btn" in body
 
 
 class TestUnknownRoute:

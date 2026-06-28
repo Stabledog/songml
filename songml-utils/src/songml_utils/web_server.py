@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
 from .html_exporter import _CSS, to_html_string
+from .midi_exporter import export_midi
 from .parser import ParseError, parse_songml
 
 _INDEX_CSS = (
@@ -35,6 +38,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_index()
         elif path.startswith("/song/"):
             self._serve_song(path[len("/song/") :])
+        elif path.startswith("/midi/"):
+            self._serve_midi(path[len("/midi/") :])
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -70,9 +75,47 @@ class _Handler(BaseHTTPRequestHandler):
             return
         try:
             doc = parse_songml(target.read_text(encoding="utf-8"))
-            rendered = to_html_string(doc, bars_per_row=self.__class__.bars_per_row, back_url="/")
+            rendered = to_html_string(
+                doc,
+                bars_per_row=self.__class__.bars_per_row,
+                back_url="/",
+                midi_url=f"/midi/{rel_path}",
+            )
             self._send(200, "text/html; charset=utf-8", rendered.encode())
         except ParseError as e:
+            self._send(400, "text/plain", str(e).encode())
+        except Exception as e:
+            self._send(500, "text/plain", str(e).encode())
+
+    def _serve_midi(self, rel_path: str):
+        base = self.__class__.root.resolve()
+        target = (base / rel_path).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            self._send(403, "text/plain", b"Access denied")
+            return
+        if not target.exists() or not target.is_file():
+            self._send(404, "text/plain", f"Not found: {rel_path}".encode())
+            return
+        try:
+            doc = parse_songml(target.read_text(encoding="utf-8"))
+            fd, tmp_path = tempfile.mkstemp(suffix=".mid")
+            os.close(fd)
+            try:
+                export_midi(doc, tmp_path)
+                midi_bytes = Path(tmp_path).read_bytes()
+            finally:
+                os.unlink(tmp_path)
+            filename = target.stem + ".mid"
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/midi")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(midi_bytes)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(midi_bytes)
+        except (ParseError, ValueError) as e:
             self._send(400, "text/plain", str(e).encode())
         except Exception as e:
             self._send(500, "text/plain", str(e).encode())
@@ -103,7 +146,13 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
     parser.add_argument("--bars-per-row", type=int, default=8, metavar="N",
                         help="Bars per display row (default: 8)")
+    parser.add_argument("--reload", action="store_true",
+                        help="Auto-restart when source files change (development mode)")
     args = parser.parse_args()
+
+    if args.reload:
+        from hupper import start_reloader
+        start_reloader("songml_utils.web_server.main")
 
     root = Path(args.root).resolve()
     if not root.is_dir():

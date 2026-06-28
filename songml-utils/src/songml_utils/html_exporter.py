@@ -23,6 +23,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#e8e8e8;margin:0;
 .song{max-width:1500px;margin:0 auto}
 .back-link{display:block;font-size:.85rem;margin-bottom:.6rem}
 h1{font-size:1.8rem;margin:0 0 .2rem}
+.title-row{display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap;margin-bottom:.2rem}
+.midi-btn{
+  padding:.25rem .75rem;background:#1a73e8;color:#fff;border-radius:4px;
+  font-size:.8rem;font-weight:600;text-decoration:none;white-space:nowrap
+}
+.midi-btn:hover{background:#1557b0;text-decoration:none;color:#fff}
 .meta{color:#555;font-size:.9rem;margin-bottom:1.25rem}
 .strip{margin-bottom:.6rem;border:1px solid #bbb;border-radius:4px;overflow:hidden}
 .section-label{
@@ -58,7 +64,12 @@ a:hover{text-decoration:underline}
 """
 
 
-def to_html_string(doc: Document, bars_per_row: int = 8, back_url: str | None = None) -> str:
+def to_html_string(
+    doc: Document,
+    bars_per_row: int = 8,
+    back_url: str | None = None,
+    midi_url: str | None = None,
+) -> str:
     title = _prop(doc, "Title", "Untitled")
     key = _prop(doc, "Key", "")
     tempo = _prop(doc, "Tempo", "")
@@ -91,6 +102,10 @@ def to_html_string(doc: Document, bars_per_row: int = 8, back_url: str | None = 
         f'<a class="back-link" href="{_html.escape(back_url)}">&larr; Library</a>'
         if back_url else ""
     )
+    midi_btn = (
+        f'<a class="midi-btn" href="{_html.escape(midi_url)}">&#9654; Download MIDI</a>'
+        if midi_url else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,7 +117,7 @@ def to_html_string(doc: Document, bars_per_row: int = 8, back_url: str | None = 
 <body>
 <div class="song">
 {back_html}
-<h1>{t}</h1>
+<div class="title-row"><h1>{t}</h1>{midi_btn}</div>
 <div class="meta">{" &bull; ".join(meta_parts)}</div>
 {"".join(strips)}
 </div>
