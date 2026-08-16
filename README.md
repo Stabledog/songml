@@ -46,16 +46,16 @@ On the `music-tools` Coder workspace (host: Stablebeast, `192.168.1.99`),
 `songml-serve` is started automatically on every workspace boot by
 [`.myspaces/init`](../.myspaces/init) — no manual step needed. It serves the
 real chord sheets from `/host_home/Dropbox/AbletonLive/Sheets` (a read-only
-host bind mount) on port **8088**, which is this workspace's `dev_port` —
+host bind mount) on port **8080**, which is this workspace's `dev_port` —
 the one port number the Coder template publishes identically inside and
 outside the container (see `dev_port` in `workspaces.conf` and the `ports`
 block in `main.tf`). The router forwards that same port to Stablebeast, so
 it's reachable from anywhere on the LAN or internet at:
 
 ```
-http://coder-stablehome.ddns.net:8088/
+http://coder-stablehome.ddns.net:8080/
 ```
 
 If it's not responding, check `/tmp/songml-serve.log` inside the workspace,
 or re-run `.myspaces/init` from the `music-tools` repo root to restart it
-(it's idempotent — a no-op if port 8088 is already listening).
+(it's idempotent — a no-op if port 8080 is already listening).
