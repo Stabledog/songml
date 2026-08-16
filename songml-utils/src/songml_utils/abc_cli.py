@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .ast import ParseError
+from .chord_voicings import find_local_voicings_path, reload_voicing_table
 from .parser import parse_songml
 
 
@@ -45,6 +47,11 @@ def main() -> None:
             content = f.read()
 
         doc = parse_songml(content)
+
+        # Check for a chord_voicings.tsv next to the input file
+        voicings_path = find_local_voicings_path(os.path.abspath(input_file))
+        if voicings_path:
+            reload_voicing_table(voicings_path)
 
         # Print warnings if any
         if doc.warnings:

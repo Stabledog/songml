@@ -12,14 +12,21 @@ __all__ = [
     "load_voicing_table",
     "reload_voicing_table",
     "get_voicing_table",
+    "find_local_voicings_path",
     "NOTE_TO_MIDI",
     "MIDDLE_C_OCTAVE",
+    "DEFAULT_VOICINGS_PATH",
     "VoicingEntry",
     "VoicingTable",
 ]
 
 import os
 from typing import Final
+
+# The package-bundled voicing table, used when no song-local override exists.
+DEFAULT_VOICINGS_PATH: Final[str] = os.path.join(
+    os.path.dirname(__file__), "data", "chord_voicings.tsv"
+)
 
 # Middle C (C4 = MIDI 60). All chord voicings use this as the default root octave.
 MIDDLE_C_OCTAVE: Final[int] = 4
@@ -68,13 +75,9 @@ def load_voicing_table(tsv_path: str | None = None) -> VoicingTable:
         ValueError: If table has invalid format
     """
     if tsv_path is None:
-        # Try local directory first
+        # Try local directory first, else fall back to package default
         local_path = os.path.join(os.getcwd(), "chord_voicings.tsv")
-        if os.path.exists(local_path):
-            tsv_path = local_path
-        else:
-            # Fall back to package default
-            tsv_path = os.path.join(os.path.dirname(__file__), "data", "chord_voicings.tsv")
+        tsv_path = local_path if os.path.exists(local_path) else DEFAULT_VOICINGS_PATH
 
     table = {}
     with open(tsv_path, encoding="utf-8") as f:
@@ -104,6 +107,27 @@ def load_voicing_table(tsv_path: str | None = None) -> VoicingTable:
             table[chord_symbol] = (root_note, offsets, tsv_path, line_num)
 
     return table
+
+
+def find_local_voicings_path(near_path: str | os.PathLike[str]) -> str | None:
+    """
+    Look for a chord_voicings.tsv alongside a .songml file.
+
+    Sheets typically live outside the code tree (e.g. a Dropbox folder), so
+    voicings specific to a song or songbook can be kept next to the .songml
+    file itself rather than requiring edits to the package's bundled table.
+
+    Args:
+        near_path: Path to a .songml file, or a directory to search directly.
+
+    Returns:
+        Absolute path to a local chord_voicings.tsv if one exists, else None
+        (callers should fall back to DEFAULT_VOICINGS_PATH).
+    """
+    near_path = os.fspath(near_path)
+    directory = near_path if os.path.isdir(near_path) else os.path.dirname(near_path)
+    candidate = os.path.join(directory or ".", "chord_voicings.tsv")
+    return candidate if os.path.exists(candidate) else None
 
 
 # Global voicing table - loaded once at module import, can be reloaded

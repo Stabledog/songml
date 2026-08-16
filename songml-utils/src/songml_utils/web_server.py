@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
+from .chord_voicings import DEFAULT_VOICINGS_PATH, find_local_voicings_path
 from .html_exporter import _CSS, to_html_string
 from .midi_exporter import export_midi
 from .parser import ParseError, parse_songml
@@ -103,7 +104,11 @@ class _Handler(BaseHTTPRequestHandler):
             fd, tmp_path = tempfile.mkstemp(suffix=".mid")
             os.close(fd)
             try:
-                export_midi(doc, tmp_path)
+                # Resolve explicitly (rather than only-if-found) since this is a
+                # persistent server handling many songs: an unqualified reload
+                # would leave a previous request's local table loaded.
+                voicings_path = find_local_voicings_path(target) or DEFAULT_VOICINGS_PATH
+                export_midi(doc, tmp_path, voicings_path)
                 midi_bytes = Path(tmp_path).read_bytes()
             finally:
                 os.unlink(tmp_path)

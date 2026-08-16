@@ -7,6 +7,7 @@ import os
 import sys
 
 from .ast import ParseError
+from .chord_voicings import find_local_voicings_path
 from .midi_exporter import export_midi
 from .parser import parse_songml
 
@@ -39,10 +40,8 @@ def main() -> None:
 
         doc = parse_songml(content)
 
-        # Check for project-local chord_voicings.tsv
-        input_dir = os.path.dirname(os.path.abspath(input_file))
-        local_voicings = os.path.join(input_dir, "chord_voicings.tsv")
-        voicings_path = local_voicings if os.path.exists(local_voicings) else None
+        # Check for a chord_voicings.tsv next to the input file
+        voicings_path = find_local_voicings_path(os.path.abspath(input_file))
 
         export_midi(doc, output_file, voicings_path, transpose=args.transpose)
 

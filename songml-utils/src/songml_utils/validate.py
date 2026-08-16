@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .ast import ParseError, Property, Section
-from .chord_voicings import get_voicing_table
+from .chord_voicings import find_local_voicings_path, get_voicing_table, reload_voicing_table
 from .parser import parse_songml
 from .voicing_validator import validate_voicing_table
 
@@ -35,6 +36,11 @@ def main() -> None:
             content = f.read()
 
         doc = parse_songml(content)
+
+        # Check for a chord_voicings.tsv next to the input file
+        voicings_path = find_local_voicings_path(os.path.abspath(filename))
+        if voicings_path:
+            reload_voicing_table(voicings_path)
 
         # Validation messages to stderr
         print(f"✓ Parsed successfully: {len(doc.items)} top-level items", file=sys.stderr)
