@@ -17,7 +17,7 @@ All commands support `--help` for detailed usage information:
 - **songml-to-midi** - Convert SongML to MIDI using chord voicings
 - **songml-inspect-midi** - Inspect MIDI files and display their properties
 - **songml-to-abc** - Convert SongML to ABC notation format
-- **songml-serve** - Start a web server for viewing SongML files
+- **songml-serve** - Start a web server for viewing SongML files as chord charts, e.g. `songml-serve --root ../samples` then open http://localhost:8000/ (see `--port`, `--bars-per-row`, `--reload`)
 - **songml-bashcompletion** - Generate bash completion script
 
 ### Bash Completion
