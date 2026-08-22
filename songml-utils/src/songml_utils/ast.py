@@ -59,6 +59,7 @@ class Section:
     bar_count: int  # Declared number of bars
     bars: list[Bar] = field(default_factory=list)  # Flat sequence of bars
     line_number: int = 0  # Source line number for error reporting
+    same_row: bool = False  # Layout hint: pack onto the previous section's row if it fits
 
     def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict."""
@@ -68,6 +69,7 @@ class Section:
             "bar_count": self.bar_count,
             "bars": [b.to_dict() for b in self.bars],
             "line_number": self.line_number,
+            "same_row": self.same_row,
         }
 
 

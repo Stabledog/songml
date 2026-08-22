@@ -68,6 +68,34 @@ The parser recognizes only `[Section Name - NN bars]` format. Bar counts are req
 The parser aborts with an error if a section header lacks a bar count.
 The parser warns on duplicate section names
 
+### Layout hint: `same-row`
+
+A section header may carry an optional trailing modifier:
+
+```
+[Verse - 4 bars]
+[Chorus - 4 bars, same-row]
+```
+
+`same-row` is a hint to `songml-serve`'s HTML renderer: pack this section
+into whatever space is left at the end of the previous section's row,
+*if it fits there whole*. It's meant for sections that are musically
+coupled but declared separately (e.g. a repeated 4-bar turnaround split
+into labeled halves) so they render side-by-side instead of stacked with
+wasted space.
+
+If it doesn't fit — the previous row is full, or this section is wider
+than what's left — the hint is silently ignored and the section starts
+its own row, same as if unmarked. This isn't an error: the modifier
+expresses intent ("if there's room, share the row"), not a requirement.
+A chain of `same-row` sections packs greedily, each one either joining
+the currently open row or starting a new one, so `[A][B,same-row]
+[C,same-row][D,same-row]` on an 8-bar-wide page (4-bar sections) lays
+out as `[A,B]` then `[C,D]`.
+
+An unrecognized modifier is ignored with a warning rather than rejected
+(consistent with permissive parsing elsewhere).
+
 ---
 
 ## 4. Bar Lines and Numbering

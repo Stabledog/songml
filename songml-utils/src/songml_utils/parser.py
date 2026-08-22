@@ -26,6 +26,13 @@ DEFAULT_KEY: Final[str] = "Cmaj"
 DEFAULT_TEMPO: Final[str] = "100"
 DEFAULT_TITLE: Final[str] = "Untitled"
 
+# Section header: [Name - N bars] with an optional trailing ", modifier"
+# (e.g. ", same-row" — a layout hint understood by songml-serve).
+SECTION_HEADER_RE: Final = re.compile(
+    r"^\[(.+?)\s*-\s*(\d+)\s*bars?\s*(?:,\s*([\w-]+)\s*)?\]$", re.IGNORECASE
+)
+KNOWN_SECTION_MODIFIERS: Final[set[str]] = {"same-row"}
+
 
 def parse_songml(content: str) -> Document:
     """Parse SongML content into an abstract syntax tree.
@@ -103,7 +110,7 @@ def parse_songml(content: str) -> Document:
             continue
 
         # Try to parse as section header
-        section_match = re.match(r"^\[(.+?)\s*-\s*(\d+)\s*bars?\s*\]$", line.strip(), re.IGNORECASE)
+        section_match = SECTION_HEADER_RE.match(line.strip())
         if section_match:
             # Flush current section
             if current_section:
@@ -117,6 +124,7 @@ def parse_songml(content: str) -> Document:
             # Start new section
             section_name = section_match.group(1).strip()
             bar_count = int(section_match.group(2))
+            modifier = section_match.group(3)
 
             # Warn on duplicate section names
             if section_names_seen and section_name in section_names_seen:
@@ -125,7 +133,16 @@ def parse_songml(content: str) -> Document:
                 )
             section_names_seen.add(section_name)
 
-            current_section = Section(section_name, bar_count, [], line_num + 1)
+            same_row = False
+            if modifier:
+                if modifier.lower() in KNOWN_SECTION_MODIFIERS:
+                    same_row = True
+                else:
+                    document.warnings.append(
+                        f'Line {line_num + 1}: Unknown section modifier "{modifier}"'
+                    )
+
+            current_section = Section(section_name, bar_count, [], line_num + 1, same_row)
             line_num += 1
             continue
 
@@ -219,7 +236,7 @@ def _parse_section_content(
             break
 
         # New section header terminates current section
-        if re.match(r"^\[(.+?)\s*-\s*(\d+)\s*bars?\s*\]$", line.strip(), re.IGNORECASE):
+        if SECTION_HEADER_RE.match(line.strip()):
             break
 
         # Not a bar-delimited row - might be text between groups, or end of section

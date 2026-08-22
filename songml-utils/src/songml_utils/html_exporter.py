@@ -5,8 +5,19 @@ from __future__ import annotations
 __all__ = ["to_html_string"]
 
 import html as _html
+from typing import NamedTuple
 
 from .ast import Bar, Document, Property, Section
+
+
+class RowSegment(NamedTuple):
+    """One section's bars occupying a slice of a rendered row."""
+
+    section: Section
+    bars: list[Bar]
+    color: str
+    show_label: bool  # False for a non-first chunk of a section wrapped across rows
+
 
 SECTION_COLORS = [
     "#fffde7",  # soft yellow
@@ -80,31 +91,64 @@ def to_html_string(
 
     sections = [item for item in doc.items if isinstance(item, Section)]
 
-    strips: list[str] = []
+    rows: list[list[RowSegment]] = []
+    open_row: list[RowSegment] | None = None
+    open_row_cols = 0
+
     for color_idx, section in enumerate(sections):
         color = SECTION_COLORS[color_idx % len(SECTION_COLORS)]
         bars = section.bars
-        for row_start in range(0, max(len(bars), 1), bars_per_row):
-            row_bars = bars[row_start : row_start + bars_per_row]
-            if not row_bars:
-                continue
-            label = section.name if row_start == 0 else ""
-            strips.append(_render_strip(row_bars, label, cols_per_bar, color, max_cols))
+        needed_cols = len(bars) * cols_per_bar
 
-    meta_parts = [p for p in [
-        f"Key: {key}" if key else "",
-        f"Tempo: {tempo}" if tempo else "",
-        f"Time: {time_sig}",
-    ] if p]
+        # A "same-row" section packs into whatever space is left on the previous
+        # row if (and only if) it fits there whole. Otherwise it falls back to
+        # starting its own row(s), same as an unmarked section.
+        if section.same_row and open_row is not None and open_row_cols + needed_cols <= max_cols:
+            open_row.append(RowSegment(section, bars, color, True))
+            open_row_cols += needed_cols
+            continue
+
+        if open_row is not None:
+            rows.append(open_row)
+            open_row = None
+            open_row_cols = 0
+
+        chunk_starts = range(0, len(bars), bars_per_row)
+        last_chunk_start = ((len(bars) - 1) // bars_per_row) * bars_per_row
+        for row_start in chunk_starts:
+            row_bars = bars[row_start : row_start + bars_per_row]
+            segment = RowSegment(section, row_bars, color, row_start == 0)
+            if row_start == last_chunk_start:
+                open_row = [segment]
+                open_row_cols = len(row_bars) * cols_per_bar
+            else:
+                rows.append([segment])
+
+    if open_row is not None:
+        rows.append(open_row)
+
+    strips = [_render_row(row, cols_per_bar, max_cols) for row in rows]
+
+    meta_parts = [
+        p
+        for p in [
+            f"Key: {key}" if key else "",
+            f"Tempo: {tempo}" if tempo else "",
+            f"Time: {time_sig}",
+        ]
+        if p
+    ]
 
     t = _html.escape(title)
     back_html = (
         f'<a class="back-link" href="{_html.escape(back_url)}">&larr; Library</a>'
-        if back_url else ""
+        if back_url
+        else ""
     )
     midi_btn = (
         f'<a class="midi-btn" href="{_html.escape(midi_url)}">&#9654; Download MIDI</a>'
-        if midi_url else ""
+        if midi_url
+        else ""
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -125,58 +169,94 @@ def to_html_string(
 </html>"""
 
 
-def _render_strip(bars: list[Bar], label: str, cols_per_bar: int, color: str, max_cols: int) -> str:
+def _render_row(segments: list[RowSegment], cols_per_bar: int, max_cols: int) -> str:
     gs = f"grid-template-columns:repeat({max_cols},1fr)"
     parts: list[str] = []
 
-    if label:
-        parts.append(f'<div class="section-label">{_html.escape(label)}</div>')
+    offsets: list[int] = []
+    col = 0
+    for seg in segments:
+        offsets.append(col)
+        col += len(seg.bars) * cols_per_bar
+
+    # Section-label row — one label per segment that starts a section, positioned
+    # over that segment's own bars (so packed sections each keep their own label).
+    if any(seg.show_label for seg in segments):
+        cells: list[str] = []
+        for seg, offset in zip(segments, offsets, strict=True):
+            if not seg.show_label:
+                continue
+            span = len(seg.bars) * cols_per_bar
+            cells.append(
+                f'<div class="section-label" style="grid-column:{offset + 1}/span {span}">'
+                f"{_html.escape(seg.section.name)}</div>"
+            )
+        parts.append(f'<div class="grid-row" style="{gs}">{"".join(cells)}</div>')
 
     # Bar numbers row
-    cells: list[str] = []
-    for i, bar in enumerate(bars):
-        col = i * cols_per_bar + 1
-        cells.append(
-            f'<div class="bar-num" style="grid-column:{col}/span {cols_per_bar}">'
-            f"{bar.number}</div>"
-        )
+    cells = []
+    for seg, offset in zip(segments, offsets, strict=True):
+        for i, bar in enumerate(seg.bars):
+            bcol = offset + i * cols_per_bar + 1
+            cells.append(
+                f'<div class="bar-num" style="grid-column:{bcol}/span {cols_per_bar}">'
+                f"{bar.number}</div>"
+            )
     parts.append(f'<div class="grid-row" style="{gs}">{"".join(cells)}</div>')
 
     # Chords row
     cells = []
-    for i, bar in enumerate(bars):
-        bar_offset = i * cols_per_bar
-        for j, chord in enumerate(bar.chords):
-            col = bar_offset + int(round(chord.start_beat * 2)) + 1
-            span = max(1, int(round(chord.duration_beats * 2)))
-            bar_start_cls = " bar-start" if j == 0 and i > 0 else ""
-            dense_cls = " dense" if span <= 2 else ""
-            text = "" if chord.text in ("...", ".") else _html.escape(chord.text)
-            tip = _html.escape(chord.text)
-            cells.append(
-                f'<div class="chord{bar_start_cls}{dense_cls}" title="{tip}" style="grid-column:{col}/span {span}">'
-                f"{text}</div>"
-            )
+    for seg_idx, (seg, offset) in enumerate(zip(segments, offsets, strict=True)):
+        for i, bar in enumerate(seg.bars):
+            bar_offset = offset + i * cols_per_bar
+            is_first_bar_of_row = seg_idx == 0 and i == 0
+            for j, chord in enumerate(bar.chords):
+                ccol = bar_offset + int(round(chord.start_beat * 2)) + 1
+                span = max(1, int(round(chord.duration_beats * 2)))
+                bar_start_cls = " bar-start" if j == 0 and not is_first_bar_of_row else ""
+                dense_cls = " dense" if span <= 2 else ""
+                text = "" if chord.text in ("...", ".") else _html.escape(chord.text)
+                tip = _html.escape(chord.text)
+                cells.append(
+                    f'<div class="chord{bar_start_cls}{dense_cls}" title="{tip}" style="grid-column:{ccol}/span {span}">'
+                    f"{text}</div>"
+                )
     parts.append(f'<div class="grid-row chords-row" style="{gs}">{"".join(cells)}</div>')
 
-    # Lyrics row — only if any bar in this strip has lyrics
-    if any(bar.lyrics for bar in bars):
+    # Lyrics row — only if any bar in this row has lyrics
+    if any(bar.lyrics for seg in segments for bar in seg.bars):
         cells = []
-        for i, bar in enumerate(bars):
-            col = i * cols_per_bar + 1
-            lyric = _html.escape(bar.lyrics or "")
-            cells.append(
-                f'<div class="lyric" title="{lyric}" style="grid-column:{col}/span {cols_per_bar}">'
-                f"{lyric}</div>"
-            )
+        for seg, offset in zip(segments, offsets, strict=True):
+            for i, bar in enumerate(seg.bars):
+                lcol = offset + i * cols_per_bar + 1
+                lyric = _html.escape(bar.lyrics or "")
+                cells.append(
+                    f'<div class="lyric" title="{lyric}" style="grid-column:{lcol}/span {cols_per_bar}">'
+                    f"{lyric}</div>"
+                )
         parts.append(f'<div class="grid-row lyrics-row" style="{gs}">{"".join(cells)}</div>')
 
-    used_pct = len(bars) * cols_per_bar / max_cols * 100
-    if used_pct >= 100:
-        bg = color
-    else:
-        bg = f"linear-gradient(to right,{color} {used_pct:.4f}%,#d0d0d0 {used_pct:.4f}%)"
+    bg = _row_background(segments, cols_per_bar, max_cols)
     return f'<div class="strip" style="background:{bg}">{"".join(parts)}</div>\n'
+
+
+def _row_background(segments: list[RowSegment], cols_per_bar: int, max_cols: int) -> str:
+    """Build a hard-edged left-to-right gradient: one color band per segment,
+    plus a trailing gray band for any unused space at the end of the row."""
+    stops: list[str] = []
+    cum_cols = 0
+    for seg in segments:
+        start_pct = cum_cols / max_cols * 100
+        cum_cols += len(seg.bars) * cols_per_bar
+        end_pct = cum_cols / max_cols * 100
+        stops.append(f"{seg.color} {start_pct:.4f}%")
+        stops.append(f"{seg.color} {end_pct:.4f}%")
+
+    if cum_cols < max_cols:
+        used_pct = cum_cols / max_cols * 100
+        stops.append(f"#d0d0d0 {used_pct:.4f}%")
+
+    return f"linear-gradient(to right,{','.join(stops)})"
 
 
 def _prop(doc: Document, name: str, default: str) -> str:

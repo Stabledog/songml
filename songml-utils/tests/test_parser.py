@@ -68,6 +68,39 @@ def test_section_header_parsing():
     assert len(sections[0].bars) == 4
 
 
+def test_section_header_same_row_modifier():
+    """Test that a ', same-row' modifier sets Section.same_row and is case-insensitive."""
+    content = """
+[Intro - 4 bars]
+| 1 | 2 | 3 | 4 |
+| C | F | G | C |
+
+[Verse - 4 bars, Same-Row]
+| 5 | 6 | 7 | 8 |
+| C | F | G | C |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert sections[0].same_row is False
+    assert sections[1].same_row is True
+    assert doc.warnings == []
+
+
+def test_section_header_unknown_modifier_warns():
+    """Test that an unrecognized modifier is ignored but produces a warning."""
+    content = """
+[Intro - 4 bars, bogus]
+| 0 | 1 | 2 | 3 |
+| C | F | G | C |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert sections[0].same_row is False
+    assert any("Unknown section modifier" in w for w in doc.warnings)
+
+
 def test_section_header_missing_bar_count():
     """Test that section without bar count raises ParseError."""
     content = """
