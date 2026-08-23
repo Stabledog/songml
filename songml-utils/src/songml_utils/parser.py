@@ -469,6 +469,35 @@ def _parse_chord_tokens(
         suffix_dots = len(token) - chord_end_idx
         chord_text_part = token[chord_start_idx:chord_end_idx]
 
+        # Chord root case carries no meaning ("em7" and "Em7" are the same chord),
+        # so repair the leading letter of the chord and, for slash chords, the
+        # leading letter of the bass note too ("em7/g" -> "Em7/G"). This makes
+        # casing transparent to every downstream consumer (voicing lookup,
+        # MIDI/ABC export) without each of them needing their own forgiving
+        # comparison.
+        if chord_text_part and chord_text_part[0].islower():
+            chord_text_part = chord_text_part[0].upper() + chord_text_part[1:]
+        slash_idx = chord_text_part.find("/")
+        if slash_idx != -1 and slash_idx + 1 < len(chord_text_part):
+            bass_idx = slash_idx + 1
+            if chord_text_part[bass_idx].islower():
+                chord_text_part = (
+                    chord_text_part[:bass_idx]
+                    + chord_text_part[bass_idx].upper()
+                    + chord_text_part[bass_idx + 1 :]
+                )
+
+        # A '.' or ';' left inside the chord text (after stripping prefix/suffix
+        # timing markers) means two chords got stuck together without a space,
+        # e.g. "Am7..Am7/C" instead of "Am7.. Am7/C". Reject rather than treat
+        # the whole blob as one unresolvable chord symbol.
+        if "." in chord_text_part or ";" in chord_text_part:
+            raise ParseError(
+                f'Invalid chord token "{token}": chords must be separated by whitespace '
+                f'(e.g. "Am7.. Am7/C", not "Am7..Am7/C")',
+                line_number,
+            )
+
         # Calculate beat advancement from prefix timing markers
         prefix_beat_advance = prefix_dots + (0.5 if has_semicolon else 0.0)
 

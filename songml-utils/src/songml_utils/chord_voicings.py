@@ -130,8 +130,12 @@ def find_local_voicings_path(near_path: str | os.PathLike[str]) -> str | None:
     return candidate if os.path.exists(candidate) else None
 
 
-# Global voicing table - loaded once at module import, can be reloaded
-_VOICING_TABLE: VoicingTable = load_voicing_table()
+# Global voicing table - loaded once at module import, can be reloaded.
+# Import always loads the package-bundled default, never a CWD-relative local
+# override: a malformed local chord_voicings.tsv must not be able to crash a
+# plain `import songml_utils` with a raw traceback before any CLI's own
+# try/except (around its reload_voicing_table() call) is reachable.
+_VOICING_TABLE: VoicingTable = load_voicing_table(DEFAULT_VOICINGS_PATH)
 _VOICING_TABLE_PATH: str = next(iter(_VOICING_TABLE.values()))[2] if _VOICING_TABLE else ""
 
 

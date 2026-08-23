@@ -450,6 +450,36 @@ def test_beat_overflow_error():
     assert "overflow" in str(exc_info.value).lower()
 
 
+def test_chord_dot_chord_without_space_error():
+    """Test that two chords glued together by dots (no space) raises an error."""
+    content = """
+[Verse - 1 bars]
+| 0 |
+| Am7..Am7/C |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "Am7..Am7/C" in str(exc_info.value)
+    assert "whitespace" in str(exc_info.value).lower()
+
+
+def test_chord_root_case_is_repaired():
+    """Test that a lowercase chord root and bass note are uppercased (case carries no meaning)."""
+    content = """
+[Verse - 1 bars]
+| 0 |
+| em7 g d/f# /a |
+"""
+    doc = parse_songml(content)
+
+    section = [item for item in doc.items if isinstance(item, Section)][0]
+    chords = section.bars[0].chords
+    assert chords[0].text == "Em7"
+    assert chords[1].text == "G"
+    assert chords[2].text == "D/F#"
+    assert chords[3].text == "/A"
+
+
 def test_multi_group_flattening():
     """Test that multiple row groups flatten into single bar sequence."""
     content = """
