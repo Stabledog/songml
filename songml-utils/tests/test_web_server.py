@@ -1,10 +1,14 @@
 """Tests for web_server module."""
 
+import errno
+import os
+import signal
+import socket
+import time
 from io import BytesIO
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-from songml_utils.web_server import _make_handler, main
+from songml_utils.web_server import _force_free_port, _make_handler, _pids_listening_on_port, main
 
 _MINIMAL_SONGML = """\
 Title: Test Song
@@ -187,3 +191,134 @@ class TestCLI:
         with patch("sys.argv", ["songml-serve", "--root", "/nonexistent/path"]):
             result = main()
         assert result == 1
+
+    def test_main_bind_conflict_without_force_returns_error(self, tmp_path, capsys):
+        with patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls:
+            mock_cls.side_effect = OSError(errno.EADDRINUSE, "Address already in use")
+
+            with patch("sys.argv", ["songml-serve", "--root", str(tmp_path), "--port", "9001"]):
+                result = main()
+
+        assert result == 1
+        assert "--force-port-grab" in capsys.readouterr().err
+
+    def test_main_force_port_grab_retries_after_freeing(self, tmp_path):
+        mock_srv = Mock()
+        mock_srv.serve_forever.side_effect = KeyboardInterrupt()
+
+        with (
+            patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls,
+            patch("songml_utils.web_server._force_free_port", return_value=True) as mock_free,
+        ):
+            mock_cls.side_effect = [OSError(errno.EADDRINUSE, "in use"), mock_srv]
+
+            with patch(
+                "sys.argv",
+                ["songml-serve", "--root", str(tmp_path), "--port", "9002", "--force-port-grab"],
+            ):
+                result = main()
+
+        assert result == 0
+        mock_free.assert_called_once_with(9002)
+
+    def test_main_force_port_grab_fails_to_free(self, tmp_path, capsys):
+        with (
+            patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls,
+            patch("songml_utils.web_server._force_free_port", return_value=False),
+        ):
+            mock_cls.side_effect = OSError(errno.EADDRINUSE, "in use")
+
+            with patch(
+                "sys.argv",
+                ["songml-serve", "--root", str(tmp_path), "--port", "9003", "--force-port-grab"],
+            ):
+                result = main()
+
+        assert result == 1
+        assert "could not free port" in capsys.readouterr().err
+
+    def test_main_bind_error_unrelated_to_address_in_use_reraises(self, tmp_path):
+        with patch("songml_utils.web_server.ThreadingHTTPServer") as mock_cls:
+            mock_cls.side_effect = OSError(errno.EACCES, "Permission denied")
+
+            with patch("sys.argv", ["songml-serve", "--root", str(tmp_path), "--port", "9004"]):
+                try:
+                    main()
+                    raised = False
+                except OSError:
+                    raised = True
+
+        assert raised
+
+
+class TestPidsListeningOnPort:
+    def test_finds_own_pid_on_bound_listening_socket(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        port = s.getsockname()[1]
+        try:
+            pids = _pids_listening_on_port(port)
+        finally:
+            s.close()
+
+        assert os.getpid() in pids
+
+    def test_empty_for_port_with_no_listener(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()
+
+        assert _pids_listening_on_port(port) == set()
+
+
+class TestForceFreePort:
+    def test_no_pids_returns_true_immediately(self, monkeypatch):
+        monkeypatch.setattr("songml_utils.web_server._pids_listening_on_port", lambda port: set())
+
+        assert _force_free_port(9010) is True
+
+    def test_sigterm_frees_port(self, monkeypatch):
+        remaining = {12345}
+        calls = []
+
+        def fake_pids(port):
+            return set(remaining)
+
+        def fake_kill(pid, sig):
+            calls.append((pid, sig))
+            if sig == signal.SIGTERM:
+                remaining.discard(pid)
+
+        monkeypatch.setattr("songml_utils.web_server._pids_listening_on_port", fake_pids)
+        monkeypatch.setattr(os, "getpid", lambda: 1)
+        monkeypatch.setattr(os, "kill", fake_kill)
+
+        assert _force_free_port(9011, timeout=1) is True
+        assert (12345, signal.SIGTERM) in calls
+        assert all(sig != signal.SIGKILL for _, sig in calls)
+
+    def test_escalates_to_sigkill_when_sigterm_ignored(self, monkeypatch):
+        calls = []
+
+        monkeypatch.setattr("songml_utils.web_server._pids_listening_on_port", lambda port: {12345})
+        monkeypatch.setattr(os, "getpid", lambda: 1)
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        monkeypatch.setattr(time, "sleep", lambda s: None)
+
+        result = _force_free_port(9012, timeout=0.05)
+
+        assert result is False
+        assert (12345, signal.SIGKILL) in calls
+
+    def test_never_kills_own_pid(self, monkeypatch):
+        calls = []
+
+        monkeypatch.setattr(
+            "songml_utils.web_server._pids_listening_on_port", lambda port: {os.getpid()}
+        )
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+
+        assert _force_free_port(9013) is True
+        assert calls == []

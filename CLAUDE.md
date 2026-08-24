@@ -30,7 +30,7 @@ songml-format ../samples/youve-got-a-way.songml
 songml-to-midi ../samples/youve-got-a-way.songml output.mid [--transpose N]
 songml-to-abc ../samples/youve-got-a-way.songml output.abc [--transpose N]
 songml-inspect-midi output.mid [-v]
-songml-serve --root ../samples [--port 8000] [--bars-per-row 8] [--reload]
+songml-serve --root ../samples [--port 8000] [--bars-per-row 8] [--reload] [--force-port-grab]
 songml-bashcompletion                    # emit a bash completion script
 songml-version                           # print the installed songml-utils version (x.y.z)
 
@@ -84,7 +84,7 @@ Key modules in `songml-utils/src/songml_utils/`:
 | `midi_exporter.py` | `export_midi(doc, path, transpose=...)` — MIDI via `mido`; fixed PPQ=480, velocity=64, root octave=3 |
 | `abc_exporter.py` | `to_abc_string(doc, transpose=...)` / `export_abc(doc, path)` — ABC notation |
 | `html_exporter.py` | `to_html_string(doc, bars_per_row=...)` — renders a beat-grid chord chart as standalone HTML |
-| `web_server.py` | `songml-serve` CLI — LAN `ThreadingHTTPServer` that lists `.songml` files under `--root` and serves them as HTML chord charts and MIDI downloads; `--reload` re-parses on each request for live editing |
+| `web_server.py` | `songml-serve` CLI — LAN `ThreadingHTTPServer` that lists `.songml` files under `--root` and serves them as HTML chord charts and MIDI downloads; `--reload` re-parses on each request for live editing; `--force-port-grab` kills whatever process is listening on `--port` (SIGTERM then SIGKILL) and takes it over |
 | `validate.py` | CLI: parses AST to JSON, warns about structural issues |
 | `midi_inspector.py` / `midi_inspector_cli.py` | `songml-inspect-midi` CLI — reports tempo, time/key signature, notes, and instruments from a `.mid` file via `pretty_midi` |
 | `chord_voicings.py` | Loads `data/chord_voicings.tsv` → maps chord symbols to MIDI note offsets; shared by MIDI/ABC export and the Ableton pipeline |

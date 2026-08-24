@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import errno
 import os
+import signal
 import sys
 import tempfile
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
@@ -143,20 +147,122 @@ def _make_handler(root: Path, bars_per_row: int) -> type[_Handler]:
     return Handler
 
 
+def _pids_listening_on_port(port: int) -> set[int]:
+    """Find PIDs with a socket in LISTEN state bound to the given TCP port.
+
+    Parses /proc directly (Linux-only) so this works with no external tools
+    (lsof, fuser, ss) required.
+    """
+    target_hex = f"{port:04X}"
+    inodes: set[str] = set()
+    for proc_file in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            with open(proc_file, encoding="ascii") as f:
+                next(f)  # header row
+                for line in f:
+                    fields = line.split()
+                    local_addr, state, inode = fields[1], fields[3], fields[9]
+                    local_port = local_addr.rsplit(":", 1)[-1]
+                    if local_port.upper() == target_hex and state == "0A":  # TCP_LISTEN
+                        inodes.add(inode)
+        except FileNotFoundError:
+            continue
+
+    if not inodes:
+        return set()
+
+    pids: set[int] = set()
+    for pid_dir in Path("/proc").iterdir():
+        if not pid_dir.name.isdigit():
+            continue
+        try:
+            for fd in (pid_dir / "fd").iterdir():
+                try:
+                    target = os.readlink(fd)
+                except OSError:
+                    continue
+                if target.startswith("socket:[") and target[8:-1] in inodes:
+                    pids.add(int(pid_dir.name))
+                    break
+        except (FileNotFoundError, PermissionError):
+            continue
+    return pids
+
+
+def _describe_pid(pid: int) -> str:
+    try:
+        comm = Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
+    except OSError:
+        comm = "?"
+    return f"pid {pid} ({comm})"
+
+
+def _force_free_port(port: int, timeout: float = 3.0) -> bool:
+    """Kill whatever is listening on `port`. Returns True once the port is free.
+
+    Sends SIGTERM first, then SIGKILL to anything still holding the port
+    after `timeout` seconds. Never targets our own process.
+    """
+    pids = _pids_listening_on_port(port) - {os.getpid()}
+    if not pids:
+        return True
+
+    for pid in pids:
+        print(
+            f"--force-port-grab: killing {_describe_pid(pid)} to free port {port}",
+            file=sys.stderr,
+        )
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            print(f"--force-port-grab: permission denied killing pid {pid}", file=sys.stderr)
+
+    deadline = time.monotonic() + timeout
+    remaining = pids
+    while time.monotonic() < deadline:
+        remaining = _pids_listening_on_port(port) - {os.getpid()}
+        if not remaining:
+            return True
+        time.sleep(0.1)
+
+    for pid in remaining:
+        print(
+            f"--force-port-grab: {_describe_pid(pid)} didn't exit, sending SIGKILL",
+            file=sys.stderr,
+        )
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.kill(pid, signal.SIGKILL)
+    time.sleep(0.2)
+
+    return not (_pids_listening_on_port(port) - {os.getpid()})
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Serve SongML files as chord charts over HTTP (LAN)"
     )
     parser.add_argument("--root", default=".", help="Directory of .songml files (default: .)")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
-    parser.add_argument("--bars-per-row", type=int, default=8, metavar="N",
-                        help="Bars per display row (default: 8)")
-    parser.add_argument("--reload", action="store_true",
-                        help="Auto-restart when source files change (development mode)")
+    parser.add_argument(
+        "--bars-per-row", type=int, default=8, metavar="N", help="Bars per display row (default: 8)"
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Auto-restart when source files change (development mode)",
+    )
+    parser.add_argument(
+        "--force-port-grab",
+        action="store_true",
+        help="If --port is already in use, kill whatever is listening on it and take it over",
+    )
     args = parser.parse_args()
 
     if args.reload:
         from hupper import start_reloader
+
         start_reloader("songml_utils.web_server.main")
 
     root = Path(args.root).resolve()
@@ -165,7 +271,30 @@ def main() -> int:
         return 1
 
     handler = _make_handler(root, args.bars_per_row)
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), handler)
+    try:
+        server = ThreadingHTTPServer(("0.0.0.0", args.port), handler)
+    except OSError as e:
+        if e.errno != errno.EADDRINUSE:
+            raise
+        if not args.force_port_grab:
+            print(
+                f"Error: port {args.port} is already in use "
+                f"(use --force-port-grab to take it over)",
+                file=sys.stderr,
+            )
+            return 1
+        if not _force_free_port(args.port):
+            print(f"Error: could not free port {args.port}", file=sys.stderr)
+            return 1
+        try:
+            server = ThreadingHTTPServer(("0.0.0.0", args.port), handler)
+        except OSError as e2:
+            print(
+                f"Error: port {args.port} still in use after --force-port-grab: {e2}",
+                file=sys.stderr,
+            )
+            return 1
+
     print(f"SongML server:  http://localhost:{args.port}/")
     print(f"Serving files:  {root}")
     print("Press Ctrl+C to stop.")
