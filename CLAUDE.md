@@ -2,42 +2,69 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Two Clones — Read This First
+
+This repo (wherever you cloned it, e.g. `~/workarea/music-tools/songml`) is the **dev/maintenance tree**: edit, test, commit, and release from here.
+
+A **separate clone** lives at `~/workarea/songml`, hardcoded into `~/.local/bin/songml/setup.sh` (the `songml` dotkit). Running `setup.sh songml` `git pull --ff-only`s that clone and `pip install -e ".[dev]" --user`s it into the global environment — that clone is what actually backs the `songml-*` commands on `PATH` system-wide.
+
+Consequences:
+
+- **Never hand-edit `~/workarea/songml`.** Anything there should only ever arrive via `git pull` of what you already committed+pushed from this tree. Stray local edits found there are safe to discard as long as they match (or are superseded by) `origin/main` — they're not a second copy of anyone's work, just install state that fell behind.
+- **Bare `songml-*` commands, `pytest`, or `python3 -m songml_utils...` run from this repo still execute the *other* clone's installed code**, not your local edits here. Check with `songml-version`, or `python3 -c "import songml_utils; print(songml_utils.__file__)"`. To actually exercise local changes, run everything through `uv run` (see Commands below) or go through the full release + reinstall cycle (see Release Workflow).
+- This includes `bin/test-serve.sh` (see Repository Layout) — it shells out to the global `songml-serve` binary, so it reflects the *other* clone too.
+
 ## Commands
 
-All commands run from `songml-utils/`:
+All commands run from `songml-utils/`, through `uv` so they use this tree's own `.venv` and actually exercise your local edits (see caveat above):
 
 ```bash
-# Install for development
-pip install -e ".[dev]"
-
 # Run all tests
-pytest
+uv run --extra dev pytest
+# equivalent: make test   (from repo root)
 
 # Run a single test file
-pytest tests/test_parser.py -v
+uv run --extra dev pytest tests/test_parser.py -v
 
 # Run tests matching a pattern
-pytest -k "test_name"
+uv run --extra dev pytest -k "test_name"
 
 # Lint and format
-ruff check src/ tests/
-ruff format src/ tests/
+uv run --extra dev ruff check src/ tests/
+uv run --extra dev ruff format src/ tests/
+# equivalent lint check: make lint   (from repo root)
 
-# Manual CLI testing
-songml-create "Song Name" C              # scaffold a new .songml file from a template
-songml-validate ../samples/youve-got-a-way.songml
-songml-format ../samples/youve-got-a-way.songml
-songml-to-midi ../samples/youve-got-a-way.songml output.mid [--transpose N]
-songml-to-abc ../samples/youve-got-a-way.songml output.abc [--transpose N]
-songml-inspect-midi output.mid [-v]
-songml-serve --root ../samples [--port 8000] [--bars-per-row 8] [--reload] [--force-port-grab]
-songml-bashcompletion                    # emit a bash completion script
-songml-version                           # print the installed songml-utils version (x.y.z)
+# Manual CLI testing (via the local venv — bare `songml-*` on PATH hits the other clone)
+uv run songml-create "Song Name" C       # scaffold a new .songml file from a template
+uv run songml-validate ../samples/youve-got-a-way.songml
+uv run songml-format ../samples/youve-got-a-way.songml
+uv run songml-to-midi ../samples/youve-got-a-way.songml output.mid [--transpose N]
+uv run songml-to-abc ../samples/youve-got-a-way.songml output.abc [--transpose N]
+uv run songml-inspect-midi output.mid [-v]
+uv run songml-serve --root ../samples [--port 8000] [--bars-per-row 8] [--reload] [--force-port-grab]
+uv run songml-bashcompletion              # emit a bash completion script
+uv run songml-version                     # print this venv's songml-utils version (x.y.z)
 
 # Ableton chord-track pipeline (separate from the .songml format above)
-als-extract song.als > chords.txt        # extract CHORD track from an Ableton .als into a chord sheet
-chords-to-midi chords.txt output.mid [--transpose N]
+uv run als-extract song.als > chords.txt  # extract CHORD track from an Ableton .als into a chord sheet
+uv run chords-to-midi chords.txt output.mid [--transpose N]
 ```
+
+## Release Workflow
+
+`make` targets, run from the repo root (`Makefile` wraps `uv run` for testing and drives the reinstall):
+
+| Target | Does |
+|--------|------|
+| `make test` | `uv run --extra dev pytest` |
+| `make lint` | `uv run --extra dev ruff check src/ tests/` |
+| `make bump-version` | Bumps the patch version in `songml-utils/src/songml_utils/__init__.py` (the single source of truth for the package version) |
+| `make release` | Runs `bump-version`, commits **only the version file**, pushes to `origin main`, then runs `reinstall` |
+| `make reinstall` | `git -C ~/.local/bin pull && setup.sh songml` — re-pulls and reinstalls the *other* clone (`~/workarea/songml`) from `origin/main`, updating the `songml-*` commands on `PATH` |
+
+**Commit your actual code changes yourself before running `make release`.** Its commit step only `git add`s the version file — uncommitted feature/fix changes are silently left behind (not included in the push, not reverted either — just still sitting there uncommitted).
+
+Normal flow: edit here → `uv run --extra dev pytest` (or `make test`) → commit your changes → `make release`. If `make reinstall` (or the tail end of `make release`) fails with a fast-forward error on `~/workarea/songml`, it means that clone has stray local edits blocking the pull — verify they're superseded by what you just pushed (`git diff origin/main -- <file>` from inside `~/workarea/songml` should be empty), then discard them there and re-run `make reinstall`.
 
 ## Repository Layout
 
@@ -47,6 +74,7 @@ All Python code and packaging lives in `songml-utils/` (single package, `songml_
 - `samples/` — example `.songml` files
 - `abc-test/` — scratch ABC-notation files used to test rendering, not part of the package
 - `ableton-chord-extract/` — scratch notes for `als-extract`/`chords-to-midi` development, not part of the package
+- `bin/test-serve.sh` — start/stop/bounce a *dev* `songml-serve` instance (`start`/`stop`/`bounce`/`status`), default port 8081 (override with `SONGML_TEST_SERVE_PORT`); stop/bounce only ever kill whatever's bound to that port, so it's safe to use alongside the production instance on port 8080 (see README's "On the Stablebeast Coder workspace"). Invokes the global `songml-serve` binary — see the two-clones caveat above.
 
 ## Architecture
 
