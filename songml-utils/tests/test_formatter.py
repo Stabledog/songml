@@ -402,8 +402,12 @@ def test_cli_stdout_default():
 
     try:
         # Run without -i flag, should print to stdout
+        import sys
+
         result = subprocess.run(
-            ["python", "-m", "songml_utils.formatter", temp_file], capture_output=True, text=True
+            [sys.executable, "-m", "songml_utils.formatter", temp_file],
+            capture_output=True,
+            text=True,
         )
 
         # Should succeed
@@ -437,8 +441,10 @@ def test_cli_inplace_flag():
 
     try:
         # Run with -i flag
+        import sys
+
         result = subprocess.run(
-            ["python", "-m", "songml_utils.formatter", temp_file, "-i"],
+            [sys.executable, "-m", "songml_utils.formatter", temp_file, "-i"],
             capture_output=True,
             text=True,
         )
@@ -482,8 +488,10 @@ def test_cli_output_file():
 
     try:
         # Run with output file specified
+        import sys
+
         result = subprocess.run(
-            ["python", "-m", "songml_utils.formatter", input_file, output_file],
+            [sys.executable, "-m", "songml_utils.formatter", input_file, output_file],
             capture_output=True,
             text=True,
         )
