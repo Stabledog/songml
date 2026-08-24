@@ -342,6 +342,11 @@ def _is_bar_number_row(bar_line: BarLine) -> bool:
 def _replace_bar_numbers(bar_line: BarLine, correct_bars: list[int]) -> BarLine:
     """Replace bar numbers in a line with correct sequential numbers.
 
+    Every interior cell (i.e. a bar column, not the empty text before the
+    leading `|` or after the trailing `|`) is treated as a bar-number slot,
+    even if the author left it blank. This fills in bar numbers the author
+    skipped for convenience, not just ones that were present but wrong.
+
     Args:
         bar_line: Line containing bar numbers
         correct_bars: List of correct bar numbers in order
@@ -351,25 +356,28 @@ def _replace_bar_numbers(bar_line: BarLine, correct_bars: list[int]) -> BarLine:
     """
     new_cells = []
     bar_index = 0
+    last_idx = len(bar_line.cells) - 1
 
-    for cell in bar_line.cells:
-        cell_text = cell.strip()
-
-        # Check if this cell contains a bar number
-        if cell_text and cell_text.isdigit():
-            if bar_index < len(correct_bars):
-                # Replace with correct bar number, preserving spacing
-                old_num = cell_text
-                new_num = str(correct_bars[bar_index])
-                new_cell = cell.replace(old_num, new_num)
-                new_cells.append(new_cell)
-                bar_index += 1
-            else:
-                # Shouldn't happen, but keep original
-                new_cells.append(cell)
-        else:
-            # Not a number or empty - keep as-is
+    for i, cell in enumerate(bar_line.cells):
+        if i == 0 or i == last_idx:
+            # Text outside the outermost pipes - not a bar slot
             new_cells.append(cell)
+            continue
+
+        if bar_index >= len(correct_bars):
+            # Shouldn't happen, but keep original
+            new_cells.append(cell)
+            continue
+
+        cell_text = cell.strip()
+        new_num = str(correct_bars[bar_index])
+        if cell_text.isdigit():
+            # Replace existing number, preserving surrounding spacing
+            new_cells.append(cell.replace(cell_text, new_num))
+        else:
+            # No number here (author skipped it) - fill it in
+            new_cells.append(new_num)
+        bar_index += 1
 
     return BarLine(
         original_content=bar_line.original_content,
