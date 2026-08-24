@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "songml-utils"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Utilities for working with SongML files"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,7 @@ songml-inspect-midi = "songml_utils.midi_inspector_cli:main"
 songml-to-abc = "songml_utils.abc_cli:main"
 songml-serve = "songml_utils.web_server:main"
 songml-bashcompletion = "songml_utils.bashcompletion:main"
+songml-version = "songml_utils.version_cli:main"
 als-extract = "songml_utils.als_cli:main"
 chords-to-midi = "songml_utils.chords_midi_cli:main"
 
@@ -62,3 +63,6 @@ addopts = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/songml_utils"]
+
+[tool.hatch.version]
+path = "src/songml_utils/__init__.py"

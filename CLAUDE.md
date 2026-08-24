@@ -32,6 +32,7 @@ songml-to-abc ../samples/youve-got-a-way.songml output.abc [--transpose N]
 songml-inspect-midi output.mid [-v]
 songml-serve --root ../samples [--port 8000] [--bars-per-row 8] [--reload]
 songml-bashcompletion                    # emit a bash completion script
+songml-version                           # print the installed songml-utils version (x.y.z)
 
 # Ableton chord-track pipeline (separate from the .songml format above)
 als-extract song.als > chords.txt        # extract CHORD track from an Ableton .als into a chord sheet
@@ -93,6 +94,7 @@ Key modules in `songml-utils/src/songml_utils/`:
 | `chord_sheet.py` | `format_sheet()` / `parse_sheet()` — read/write the intermediate chord sheet text format |
 | `chords_midi_cli.py` | `chords-to-midi` CLI — converts a chord sheet directly to MIDI, bypassing the SongML AST |
 | `bashcompletion.py` | `songml-bashcompletion` CLI — emits `data/bash_completion.sh` for all `songml-*`/`als-extract`/`chords-to-midi` commands |
+| `version_cli.py` | `songml-version` CLI — prints `songml_utils.__version__` (x.y.z), the package's single source of truth (`pyproject.toml` reads it dynamically); use to tell which clone/install a `songml-*` command on `PATH` is actually running |
 
 ## Key Design Decisions
 

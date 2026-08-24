@@ -1,6 +1,6 @@
 """SongML utilities - parser, formatter, and tools for working with SongML files."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Core exports
 from .abc_exporter import export_abc, to_abc_string
