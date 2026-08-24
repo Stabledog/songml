@@ -5,7 +5,7 @@ Intentionally forgiving - focuses on extracting meaning rather than strict valid
 
 from __future__ import annotations
 
-__all__ = ["parse_songml"]
+__all__ = ["parse_songml", "is_bar_continuity_warning"]
 
 import re
 from typing import Final
@@ -583,6 +583,17 @@ def _parse_chord_tokens(
     return chord_tokens
 
 
+# Marker substring identifying warnings produced by _validate_bar_continuity, so
+# callers that auto-renumber bars (e.g. songml-format) can tell these apart from
+# other warnings and drop them once they've fixed the numbering themselves.
+_BAR_CONTINUITY_MARKER: Final[str] = "but should continue from bar"
+
+
+def is_bar_continuity_warning(warning: str) -> bool:
+    """Check whether a Document warning came from _validate_bar_continuity."""
+    return _BAR_CONTINUITY_MARKER in warning
+
+
 def _validate_bar_continuity(document: Document) -> None:
     """Validate that bar numbers continue sequentially across sections.
 
@@ -605,7 +616,7 @@ def _validate_bar_continuity(document: Document) -> None:
         if first_bar_num != expected_next_bar:
             document.warnings.append(
                 f'Line {item.line_number}: Section "{item.name}" starts at bar {first_bar_num}, '
-                f"but should continue from bar {expected_next_bar}"
+                f"{_BAR_CONTINUITY_MARKER} {expected_next_bar}"
             )
 
         # Next section should start after the last bar of this section

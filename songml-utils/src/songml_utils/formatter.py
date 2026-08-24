@@ -18,7 +18,7 @@ import sys
 from dataclasses import dataclass
 
 from .ast import ParseError, Section
-from .parser import is_comment_line, parse_songml
+from .parser import is_bar_continuity_warning, is_comment_line, parse_songml
 
 
 @dataclass
@@ -418,12 +418,15 @@ def main() -> None:
         try:
             doc = parse_songml(content)
 
-            # Fix bar numbers in the AST
+            # Fix bar numbers in the AST. songml-format is pretty-printing, so bar
+            # continuity is renumbered automatically rather than left as something
+            # the user must fix by hand; only report warnings that aren't fixed here.
             _fix_bar_numbers_in_ast(doc)
+            reportable_warnings = [w for w in doc.warnings if not is_bar_continuity_warning(w)]
 
-            if doc.warnings:
-                print(f"Validation warnings ({len(doc.warnings)}):", file=sys.stderr)
-                for warning in doc.warnings:
+            if reportable_warnings:
+                print(f"Validation warnings ({len(reportable_warnings)}):", file=sys.stderr)
+                for warning in reportable_warnings:
                     print(f"  {warning}", file=sys.stderr)
                 print("", file=sys.stderr)  # Blank line for readability
         except ParseError as e:
