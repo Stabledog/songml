@@ -543,6 +543,39 @@ More text here.
     assert len(text_blocks) >= 1
 
 
+def test_commented_out_row_with_pipes_is_ignored():
+    """A '#'-prefixed line containing '|' must never be parsed as a bar row."""
+    content = """
+[Verse 1 - 1 bars]
+| 0 |
+| C |
+| Punch on in |
+
+#| Smile when it hurts and frown it don't | keep em guessin |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert len(sections) == 1
+    assert len(sections[0].bars) == 1
+
+
+def test_commented_out_row_with_double_slash_is_ignored():
+    """A '//'-prefixed line containing '|' must never be parsed as a bar row."""
+    content = """
+[Verse 1 - 1 bars]
+| 0 |
+| C |
+
+// | draft lyric | another draft |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert len(sections) == 1
+    assert len(sections[0].bars) == 1
+
+
 def test_opaque_chord_text():
     """Test that parser treats chords as opaque text (doesn't validate symbols)."""
     content = """

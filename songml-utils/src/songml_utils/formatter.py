@@ -18,7 +18,7 @@ import sys
 from dataclasses import dataclass
 
 from .ast import ParseError, Section
-from .parser import parse_songml
+from .parser import is_comment_line, parse_songml
 
 
 @dataclass
@@ -52,8 +52,8 @@ type BarRenumberingMap = dict[int, list[int]]
 
 
 def detect_bar_line(line: str) -> bool:
-    """Check if line contains bar markers."""
-    return "|" in line
+    """Check if line contains bar markers (comments are never a bar line, even with '|')."""
+    return "|" in line and not is_comment_line(line)
 
 
 def split_bar_line(line: str) -> list[str]:

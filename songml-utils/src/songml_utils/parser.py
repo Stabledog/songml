@@ -34,6 +34,17 @@ SECTION_HEADER_RE: Final = re.compile(
 KNOWN_SECTION_MODIFIERS: Final[set[str]] = {"same-row"}
 
 
+def is_comment_line(line: str) -> bool:
+    """Check if a line is a full-line comment ('#' or '//' as its first non-space chars).
+
+    Comment lines are recognized unconditionally, before any other line
+    classification (property, section header, bar row) is attempted — even
+    when they contain '|' characters that would otherwise look like a row.
+    """
+    stripped = line.strip()
+    return stripped.startswith("#") or stripped.startswith("//")
+
+
 def parse_songml(content: str) -> Document:
     """Parse SongML content into an abstract syntax tree.
 
@@ -156,7 +167,8 @@ def parse_songml(content: str) -> Document:
             )
 
         # Check if we're inside a section and this looks like a bar-delimited row
-        if current_section and "|" in line:
+        # (comments never count as a row, even when they contain '|')
+        if current_section and "|" in line and not is_comment_line(line):
             # Parse section content starting from this line
             line_num = _parse_section_content(lines, line_num, current_section, property_state)
             continue
@@ -228,6 +240,11 @@ def _parse_section_content(
 
         # Check if this line ends the section
         if not line.strip():
+            line_num += 1
+            continue
+
+        # Comments are never parsed as structural content, even with '|' in them
+        if is_comment_line(line):
             line_num += 1
             continue
 

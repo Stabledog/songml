@@ -293,6 +293,26 @@ def test_format_songml_round_trip():
     assert formatted_once == formatted_twice
 
 
+def test_detect_bar_line_ignores_comments():
+    """Lines that are comments must never count as bar lines, even with '|' in them."""
+    assert detect_bar_line("| C | F |") is True
+    assert detect_bar_line("#| commented out | row |") is False
+    assert detect_bar_line("// | commented out | row |") is False
+
+
+def test_format_songml_preserves_commented_out_row():
+    """A commented-out row (with '|' in it) must pass through untouched, not be aligned."""
+    content = """[Verse]
+| F | G |
+| You | Me |
+
+#| draft lyric | another draft |"""
+
+    formatted = format_songml(content)
+
+    assert "#| draft lyric | another draft |" in formatted
+
+
 def test_format_songml_preserves_timing_semantics():
     """Test critical requirement: spacing within cells has timing semantics."""
     # These two lines have DIFFERENT timing semantics
