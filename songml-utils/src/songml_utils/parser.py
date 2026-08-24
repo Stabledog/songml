@@ -267,6 +267,14 @@ def _parse_section_content(
     return line_num
 
 
+def _skip_comment_lines(lines: list[str], line_num: int) -> int:
+    """Advance past any comment lines. Comments are never structural content,
+    even where a caller is looking one line ahead for a specific row type."""
+    while line_num < len(lines) and is_comment_line(lines[line_num]):
+        line_num += 1
+    return line_num
+
+
 def _parse_row_group(
     lines: list[str],
     start_line: int,
@@ -285,6 +293,7 @@ def _parse_row_group(
         # This is a bar-number row
         bar_numbers = _parse_bar_number_row(cells, line_num + 1)
         line_num += 1
+        line_num = _skip_comment_lines(lines, line_num)
 
         # Next row must be chords
         if line_num >= len(lines):
@@ -302,6 +311,7 @@ def _parse_row_group(
             )
 
         line_num += 1
+        line_num = _skip_comment_lines(lines, line_num)
 
         # Optional lyric row
         lyric_cells = None

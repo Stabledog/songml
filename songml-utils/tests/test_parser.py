@@ -576,6 +576,39 @@ def test_commented_out_row_with_double_slash_is_ignored():
     assert len(sections[0].bars) == 1
 
 
+def test_commented_line_immediately_after_chord_row_is_not_a_lyric_row():
+    """A comment directly following the chord row must not be mistaken for
+    (and validated as) the optional lyric row."""
+    content = """
+[Verse 1 - 1 bars]
+| 0 |
+| C |
+#| this comment has | two cells, not one |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert len(sections) == 1
+    assert len(sections[0].bars) == 1
+    assert sections[0].bars[0].lyrics is None
+
+
+def test_commented_line_immediately_after_bar_number_row_is_not_a_chord_row():
+    """A comment directly following the bar-number row must not be mistaken
+    for the required chord row."""
+    content = """
+[Verse 1 - 1 bars]
+| 0 |
+#| a comment, not chords |
+| C |
+"""
+    doc = parse_songml(content)
+
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert len(sections) == 1
+    assert sections[0].bars[0].chords[0].text == "C"
+
+
 def test_opaque_chord_text():
     """Test that parser treats chords as opaque text (doesn't validate symbols)."""
     content = """
