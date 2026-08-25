@@ -218,6 +218,23 @@ def test_format_songml_preserves_cell_content():
     assert lines[2] == "| Dm        | Bm7 |"
 
 
+def test_format_songml_fixes_chord_casing():
+    """Chord root case (and slash-bass case) is repaired, mirroring the parser."""
+    content = """[Verse - 2 bars]
+| 1              | 2   |
+| em7  am7/g     | gsus4.. g7sus4 |
+| lyrics here    | more lyrics |"""
+
+    formatted = format_songml(content)
+    lines = formatted.split("\n")
+
+    assert "Em7  Am7/G" in lines[2]
+    assert "Gsus4.. G7sus4" in lines[2]
+    # Bar-number and lyric rows are untouched
+    assert lines[1] == "| 1              | 2              |"
+    assert lines[3] == "| lyrics here    | more lyrics    |"
+
+
 def test_format_songml_empty_cells():
     """Test handling of empty cells."""
     content = """[Verse]

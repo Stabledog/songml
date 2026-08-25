@@ -14,6 +14,7 @@ Key principles:
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass
 
@@ -148,6 +149,89 @@ def align_bar_group(bar_group: BarGroup, column_widths: list[int]) -> list[str]:
     return aligned_lines
 
 
+def _fix_chord_token_casing(token: str) -> str:
+    """Repair the leading letter of a chord token (and its slash-bass note).
+
+    Mirrors the casing repair `_parse_chord_tokens` applies in parser.py so the
+    on-disk text matches what every downstream consumer (voicing lookup,
+    MIDI/ABC export) already treats as canonical, instead of that repair only
+    ever existing in the parsed-and-discarded AST.
+
+    Args:
+        token: A single whitespace-delimited chord token, timing markers and
+            all (e.g. "..gsus4..", ";am7/g").
+
+    Returns:
+        The token with chord-root and slash-bass letters uppercased, prefix/
+        suffix dots and semicolons untouched.
+    """
+    start_idx = 0
+    while start_idx < len(token) and token[start_idx] == ".":
+        start_idx += 1
+    if start_idx < len(token) and token[start_idx] == ";":
+        start_idx += 1
+
+    end_idx = len(token)
+    while end_idx > start_idx and token[end_idx - 1] == ".":
+        end_idx -= 1
+
+    prefix = token[:start_idx]
+    suffix = token[end_idx:]
+    chord_text = token[start_idx:end_idx]
+
+    if chord_text and chord_text[0].islower():
+        chord_text = chord_text[0].upper() + chord_text[1:]
+
+    slash_idx = chord_text.find("/")
+    if slash_idx != -1 and slash_idx + 1 < len(chord_text):
+        bass_idx = slash_idx + 1
+        if chord_text[bass_idx].islower():
+            chord_text = (
+                chord_text[:bass_idx] + chord_text[bass_idx].upper() + chord_text[bass_idx + 1 :]
+            )
+
+    return prefix + chord_text + suffix
+
+
+def _fix_chord_cell_casing(cell: str) -> str:
+    """Apply `_fix_chord_token_casing` to every token in a chord cell.
+
+    Splits on whitespace runs only, so cell spacing (which carries timing
+    semantics) is preserved exactly - only letter case changes.
+    """
+    return re.sub(r"\S+", lambda m: _fix_chord_token_casing(m.group(0)), cell)
+
+
+def _fix_chord_casing_in_group(bar_group: BarGroup) -> BarGroup:
+    """Fix chord-letter casing in the chord row of every row-group in a BarGroup.
+
+    Row-groups follow a fixed shape (bar-number row, then a chord row, then an
+    optional lyric row), so a chord row is identified structurally as "the row
+    immediately following a bar-number row" rather than by re-parsing chords.
+    """
+    new_lines = []
+    expecting_chords = False
+
+    for line in bar_group.lines:
+        if _is_bar_number_row(line):
+            new_lines.append(line)
+            expecting_chords = True
+        elif expecting_chords:
+            new_cells = [_fix_chord_cell_casing(cell) for cell in line.cells]
+            new_lines.append(
+                BarLine(
+                    original_content=line.original_content,
+                    cells=new_cells,
+                    line_number=line.line_number,
+                )
+            )
+            expecting_chords = False
+        else:
+            new_lines.append(line)
+
+    return BarGroup(lines=new_lines, start_line=bar_group.start_line, end_line=bar_group.end_line)
+
+
 def group_bar_lines(lines: list[str]) -> list[BarGroupOrTextBlock]:
     """Identify consecutive bar lines vs. other content.
 
@@ -245,6 +329,9 @@ def format_songml(content: str, parsed_doc=None) -> str:
             # Apply bar renumbering if available
             if bar_renumbering:
                 block = _apply_bar_renumbering(block, bar_renumbering)
+
+            # Chord root case carries no meaning, so normalize it on-disk too
+            block = _fix_chord_casing_in_group(block)
 
             # Align bar lines
             column_widths = calculate_column_widths(block)

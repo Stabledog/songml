@@ -50,3 +50,4 @@ Thumbs.db
 tmp/
 songml-utils/src/songml_utils/data/voicing-validator.py
 songml-utils/src/songml_utils/data/chord_voicing_validation_report.txt
+yolo*json
