@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# test-serve.sh - start/stop/bounce a dev instance of songml-serve
-#
-# Usage:
-#   test-serve.sh start
-#   test-serve.sh stop
-#   test-serve.sh bounce
-#   test-serve.sh status
-#
-# The port defaults to 8081 and can be overridden with SONGML_TEST_SERVE_PORT.
-# stop/bounce only ever kill the process currently bound to that port, so a
-# production instance on a different port (e.g. 8080) is never touched.
+# test-serve.sh - start/stop/bounce/status songml-serve, running THIS dev
+# tree's code (via `uv run`) against the real chord-sheet library, replacing
+# whatever is currently bound to the port. Since it's `uv run`, --reload's
+# file-watcher watches this tree's own source, not an installed copy.
+# Usage: test-serve.sh {start|stop|bounce|status}
+# Port: SONGML_TEST_SERVE_PORT (default 8080). Root: SONGML_SERVE_ROOT
+# (default: the real content mount, falling back to samples/ if absent).
 
 set -euo pipefail
 #shellcheck disable=2154
@@ -19,7 +15,7 @@ PS4='$( _0=$?; exec 2>/dev/null; realpath -- "${BASH_SOURCE[0]:-?}:${LINENO} ^$_
 scriptName="${scriptName:-"$(command readlink -f -- "$0")"}"
 scriptDir="$(command dirname -- "${scriptName}")"
 
-export SONGML_TEST_SERVE_PORT=${SONGML_TEST_SERVE_PORT:-8081}
+export SONGML_TEST_SERVE_PORT=${SONGML_TEST_SERVE_PORT:-8080}
 
 die() {
     builtin echo "ERROR($(basename "${scriptName}")): $*" >&2
@@ -28,15 +24,27 @@ die() {
 
 {  # outer scope braces
 
+    _default_serve_root() {
+        local real_root="/host_home/Dropbox/AbletonLive/Sheets"
+        if [[ -d "$real_root" ]]; then
+            builtin echo "$real_root"
+        else
+            builtin echo "${scriptDir}/../samples"
+        fi
+    }
+
     usage() {
         cut -c 12- <<'EOF'
             Usage: test-serve.sh {start|stop|bounce|status}
 
-            Starts/stops/bounces a songml-serve instance for local testing.
+            Starts/stops/bounces songml-serve, running this dev tree's code
+            (via `uv run`) against the real chord-sheet library.
 
-            Port defaults to 8081; override with SONGML_TEST_SERVE_PORT.
-            stop/bounce only kill the process currently listening on that
-            port, so other instances (e.g. production on :8080) are safe.
+            Port defaults to 8080; override with SONGML_TEST_SERVE_PORT.
+            Root defaults to the real content mount; override with
+            SONGML_SERVE_ROOT. stop/bounce only kill the process currently
+            listening on the target port, so pointing this at a different
+            port leaves any instance elsewhere untouched.
 EOF
         exit 2
     }
@@ -48,19 +56,22 @@ EOF
 
     do_start() {
         local port="$1"
-        local samples_dir="${scriptDir}/../samples"
+        local pkg_dir="${scriptDir}/../songml-utils"
+        local serve_root="${SONGML_SERVE_ROOT:-$(_default_serve_root)}"
         local log_file="${TMPDIR:-/tmp}/songml-test-serve-${port}.log"
 
         local existing_pid
         existing_pid="$(pid_on_port "$port")"
         if [[ -n "$existing_pid" ]]; then
-            die "port ${port} is already in use (pid ${existing_pid}), possibly serving ${samples_dir} — run 'stop' first or set SONGML_TEST_SERVE_PORT"
+            die "port ${port} is already in use (pid ${existing_pid}) — run 'stop' or 'bounce' first, or set SONGML_TEST_SERVE_PORT"
         fi
 
-        [[ -d "$samples_dir" ]] || die "samples dir not found: ${samples_dir}"
+        [[ -d "$serve_root" ]] || die "serve root not found: ${serve_root}"
 
-        echo "Starting songml-serve on port ${port} (log: ${log_file}) ..."
-        songml-serve --root "$samples_dir" --port "$port" --reload >"$log_file" 2>&1 &
+        echo "Starting songml-serve (local dev tree) on port ${port} (log: ${log_file}) ..."
+        ( builtin cd -- "$pkg_dir" \
+          && uv run songml-serve --root "$serve_root" --port "$port" --reload \
+        ) >"$log_file" 2>&1 &
         disown
 
         local tries=0
@@ -72,7 +83,7 @@ EOF
             sleep 0.2
         done
 
-        echo "songml-serve running on port ${port} (pid $(pid_on_port "$port")), serving ${samples_dir}"
+        echo "songml-serve running on port ${port} (pid $(pid_on_port "$port")), serving ${serve_root}"
     }
 
     do_stop() {
@@ -102,14 +113,14 @@ EOF
 
     do_status() {
         local port="$1"
-        local samples_dir="${scriptDir}/../samples"
+        local serve_root="${SONGML_SERVE_ROOT:-$(_default_serve_root)}"
         local pid
         pid="$(pid_on_port "$port")"
 
         if [[ -n "$pid" ]]; then
-            echo "songml-serve running on port ${port} (pid ${pid}), serving ${samples_dir}"
+            echo "songml-serve running on port ${port} (pid ${pid})"
         else
-            echo "No server running on port ${port} (would serve ${samples_dir})"
+            echo "No server running on port ${port} (would serve ${serve_root})"
         fi
     }
 

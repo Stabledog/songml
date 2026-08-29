@@ -19,6 +19,10 @@ help: FORCE
 	@echo "  bump-version   Bump the patch version in $(VersionFile)"
 	@echo "  release        Bump version, commit+push, reinstall to this host"
 	@echo "  reinstall      Pull ~/.local/bin and reinstall the songml dotkit"
+	@echo "  serve-start    Start songml-serve (this dev tree's code) on :8080"
+	@echo "  serve-stop     Stop whatever's serving on :8080"
+	@echo "  serve-bounce   Replace whatever's on :8080 with this dev tree's code"
+	@echo "  serve-status   Show whether :8080 is up and who's serving it"
 
 test: FORCE
 	cd $(PkgDir)
@@ -48,3 +52,15 @@ release: FORCE bump-version
 reinstall: FORCE
 	git -C ~/.local/bin pull
 	setup.sh songml
+
+serve-start: FORCE
+	$(absdir)bin/test-serve.sh start
+
+serve-stop: FORCE
+	$(absdir)bin/test-serve.sh stop
+
+serve-bounce: FORCE
+	$(absdir)bin/test-serve.sh bounce
+
+serve-status: FORCE
+	$(absdir)bin/test-serve.sh status

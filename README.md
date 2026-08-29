@@ -58,4 +58,18 @@ http://coder-stablehome.ddns.net:8080/
 
 If it's not responding, check `/tmp/songml-serve.log` inside the workspace,
 or re-run `.myspaces/init` from the `music-tools` repo root to restart it
-(it's idempotent — a no-op if port 8080 is already listening).
+(it's idempotent — a no-op if port 8080 is already listening). This gets a
+fresh container to a valid baseline state; it's not meant to be re-run
+while actively developing (see below).
+
+`.myspaces/init`'s instance runs the songml-utils install under
+`~/workarea/songml` (a separate clone from this dev tree — see `CLAUDE.md`'s
+"Two Clones" section). There's no separate dev/production split here in
+practice: while working on songml-utils, run `make serve-bounce` from the
+repo root to kill whatever's on :8080 and replace it with **this dev tree's**
+code (via `uv run`, with `--reload` watching this tree's own source files —
+so most edits reflect automatically; re-run `make serve-bounce` if a change
+doesn't seem to have taken). That instance then stays the live one at
+`coder-stablehome.ddns.net:8080` until the container itself is recycled.
+`make serve-status` / `make serve-stop` / `make serve-start` are also
+available — see `make help`.

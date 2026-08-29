@@ -12,7 +12,7 @@ Consequences:
 
 - **Never hand-edit `~/workarea/songml`.** Anything there should only ever arrive via `git pull` of what you already committed+pushed from this tree. Stray local edits found there are safe to discard as long as they match (or are superseded by) `origin/main` — they're not a second copy of anyone's work, just install state that fell behind.
 - **Bare `songml-*` commands, `pytest`, or `python3 -m songml_utils...` run from this repo still execute the *other* clone's installed code**, not your local edits here. Check with `songml-version`, or `python3 -c "import songml_utils; print(songml_utils.__file__)"`. To actually exercise local changes, run everything through `uv run` (see Commands below) or go through the full release + reinstall cycle (see Release Workflow).
-- This includes `bin/test-serve.sh` (see Repository Layout) — it shells out to the global `songml-serve` binary, so it reflects the *other* clone too.
+- **Exception: `bin/test-serve.sh` (and `make serve-*`)** — this one deliberately runs `uv run songml-serve` from *this* tree, not the global binary, so it exercises local edits directly (and its `--reload` watches this tree's files). It's the one live `songml-serve` on this host (there's a single customer here, not a real prod/dev split), always on port 8080 — see Repository Layout and the README's "On the Stablebeast Coder workspace".
 
 ## Commands
 
@@ -74,7 +74,7 @@ All Python code and packaging lives in `songml-utils/` (single package, `songml_
 - `samples/` — example `.songml` files
 - `abc-test/` — scratch ABC-notation files used to test rendering, not part of the package
 - `ableton-chord-extract/` — scratch notes for `als-extract`/`chords-to-midi` development, not part of the package
-- `bin/test-serve.sh` — start/stop/bounce a *dev* `songml-serve` instance (`start`/`stop`/`bounce`/`status`), default port 8081 (override with `SONGML_TEST_SERVE_PORT`); stop/bounce only ever kill whatever's bound to that port, so it's safe to use alongside the production instance on port 8080 (see README's "On the Stablebeast Coder workspace"). Invokes the global `songml-serve` binary — see the two-clones caveat above.
+- `bin/test-serve.sh` — start/stop/bounce/status the live `songml-serve` instance (default port 8080, override with `SONGML_TEST_SERVE_PORT`; content root defaults to the real chord-sheet mount, override with `SONGML_SERVE_ROOT`). Runs `uv run songml-serve` from *this* tree (not the global binary — see the two-clones exception above), with `--reload`, so it executes local edits and auto-restarts on code changes. Wrapped by `make serve-start` / `serve-stop` / `serve-bounce` / `serve-status` for discoverability (see `make help`). `bounce` kills whatever's currently on the port first, so it cleanly replaces the instance `.myspaces/init` started at container boot.
 
 ## Architecture
 
