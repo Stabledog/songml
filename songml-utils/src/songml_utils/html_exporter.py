@@ -48,10 +48,11 @@ h1{font-size:1.8rem;margin:0 0 .2rem}
 }
 .grid-row{display:grid}
 .bar-num{
-  font-size:.68rem;color:#555;padding:1px 4px;
+  font-size:.68rem;color:#7b1fa2;font-weight:700;padding:1px 4px;white-space:nowrap;
   background:rgba(0,0,0,.07);border-left:2px solid rgba(0,0,0,.22)
 }
 .bar-num:first-child{border-left:none}
+.bar-elapsed{font-style:italic;font-weight:400;color:#555}
 .chords-row{min-height:2.5rem}
 .chord{
   font-size:.95rem;font-weight:700;padding:3px 4px;
@@ -127,7 +128,9 @@ def to_html_string(
     if open_row is not None:
         rows.append(open_row)
 
-    strips = [_render_row(row, cols_per_bar, max_cols) for row in rows]
+    strips = [
+        _render_row(row, cols_per_bar, max_cols, beats_per_bar, tempo) for row in rows
+    ]
 
     meta_parts = [
         p
@@ -169,7 +172,13 @@ def to_html_string(
 </html>"""
 
 
-def _render_row(segments: list[RowSegment], cols_per_bar: int, max_cols: int) -> str:
+def _render_row(
+    segments: list[RowSegment],
+    cols_per_bar: int,
+    max_cols: int,
+    beats_per_bar: int,
+    tempo: str,
+) -> str:
     gs = f"grid-template-columns:repeat({max_cols},1fr)"
     parts: list[str] = []
 
@@ -198,9 +207,10 @@ def _render_row(segments: list[RowSegment], cols_per_bar: int, max_cols: int) ->
     for seg, offset in zip(segments, offsets, strict=True):
         for i, bar in enumerate(seg.bars):
             bcol = offset + i * cols_per_bar + 1
+            elapsed = _format_elapsed(bar.number, beats_per_bar, tempo)
             cells.append(
                 f'<div class="bar-num" style="grid-column:{bcol}/span {cols_per_bar}">'
-                f"{bar.number}</div>"
+                f'{bar.number} <span class="bar-elapsed">[{elapsed}]</span></div>'
             )
     parts.append(f'<div class="grid-row" style="{gs}">{"".join(cells)}</div>')
 
@@ -257,6 +267,21 @@ def _row_background(segments: list[RowSegment], cols_per_bar: int, max_cols: int
         stops.append(f"#d0d0d0 {used_pct:.4f}%")
 
     return f"linear-gradient(to right,{','.join(stops)})"
+
+
+def _format_elapsed(bar_number: int, beats_per_bar: int, tempo: str) -> str:
+    """Elapsed time at the start of a bar, as M:SS. "-:--" if tempo is unknown."""
+    try:
+        bpm = float(tempo)
+    except ValueError:
+        bpm = 0.0
+    if bpm <= 0:
+        return "-:--"
+
+    seconds = (bar_number - 1) * beats_per_bar * 60.0 / bpm
+    total_seconds = round(seconds)
+    minutes, secs = divmod(total_seconds, 60)
+    return f"{minutes}:{secs:02d}"
 
 
 def _prop(doc: Document, name: str, default: str) -> str:

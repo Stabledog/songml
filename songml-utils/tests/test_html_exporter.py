@@ -16,6 +16,10 @@ def _labels(strip: str) -> list[str]:
     return re.findall(r'<div class="section-label"[^>]*>([^<]*)</div>', strip)
 
 
+def _elapsed(strip: str) -> list[str]:
+    return re.findall(r'<span class="bar-elapsed">\[([^\]]*)\]</span>', strip)
+
+
 def test_unmarked_sections_each_get_their_own_row():
     content = """
 [A - 4 bars]
@@ -50,7 +54,7 @@ def test_same_row_section_packs_into_leftover_space():
     assert len(strips) == 1
     assert _labels(strips[0]) == ["A", "B"]
 
-    bar_nums = re.findall(r'<div class="bar-num"[^>]*>(\d+)</div>', strips[0])
+    bar_nums = re.findall(r'<div class="bar-num"[^>]*>(\d+)', strips[0])
     assert bar_nums == ["1", "2", "3", "4", "5", "6", "7", "8"]
 
 
@@ -119,3 +123,30 @@ def test_first_section_ignores_same_row():
     strips = _strips(html)
     assert len(strips) == 1
     assert _labels(strips[0]) == ["A"]
+
+
+def test_bar_header_shows_elapsed_time_from_tempo():
+    content = """
+Tempo: 100
+Time: 4/4
+[A - 4 bars]
+| 1 | 2 | 3 | 4 |
+| C | F | G | C |
+"""
+    doc = parse_songml(content)
+    html = to_html_string(doc, bars_per_row=8)
+    strips = _strips(html)
+    # 4 beats/bar at 100bpm = 2.4s/bar: 0.0, 2.4, 4.8, 7.2 -> rounds to 0, 2, 5, 7
+    assert _elapsed(strips[0]) == ["0:00", "0:02", "0:05", "0:07"]
+
+
+def test_bar_header_shows_placeholder_when_tempo_missing():
+    content = """
+[A - 4 bars]
+| 1 | 2 | 3 | 4 |
+| C | F | G | C |
+"""
+    doc = parse_songml(content)
+    html = to_html_string(doc, bars_per_row=8)
+    strips = _strips(html)
+    assert _elapsed(strips[0]) == ["-:--", "-:--", "-:--", "-:--"]
