@@ -174,6 +174,38 @@ Time: 4/4
             os.remove(output_file)
 
 
+def test_fractional_tempo():
+    """Fractional BPM (e.g. a real track's 103.2) exports without error."""
+    from mido import tempo2bpm
+
+    content = """
+Title: Fractional Tempo
+Tempo: 103.2
+Time: 4/4
+
+[Verse - 2 bars]
+| 0 | 1 |
+| C | G |
+"""
+
+    doc = parse_songml(content)
+    output_file = "test_fractional_tempo.mid"
+
+    try:
+        export_midi(doc, output_file)
+
+        mid = MidiFile(output_file)
+        track = mid.tracks[0]
+        set_tempo = next(msg for msg in track if msg.is_meta and msg.type == "set_tempo")
+        # set_tempo stores int microseconds/quarter-note; the fraction survives to
+        # MIDI's resolution.
+        assert tempo2bpm(set_tempo.tempo) == pytest.approx(103.2, rel=1e-4)
+
+    finally:
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
+
 def test_timing_with_dots():
     """Test explicit timing with dots."""
     content = """

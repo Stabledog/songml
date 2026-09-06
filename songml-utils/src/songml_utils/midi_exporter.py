@@ -55,7 +55,11 @@ def export_midi(
     title = _get_property(doc, "Title", default="Untitled")
 
     # Parse properties
-    tempo_bpm = int(tempo_str)
+    # Accept fractional BPM (e.g. "103.2") - real tracks aren't always integer tempo.
+    # MIDI itself has no BPM field; set_tempo stores microseconds-per-quarter-note as
+    # an int, so the fraction is preserved to the resolution MIDI allows (see
+    # _bpm_to_microseconds).
+    tempo_bpm = float(tempo_str)
     numerator, denominator = _parse_time_signature(time_sig_str)
     beats_per_bar = numerator
 
@@ -226,9 +230,9 @@ def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     return int(parts[0]), int(parts[1])
 
 
-def _bpm_to_microseconds(bpm: int) -> int:
-    """Convert BPM to microseconds per quarter note."""
-    return int(MICROSECONDS_PER_MINUTE / bpm)
+def _bpm_to_microseconds(bpm: float) -> int:
+    """Convert BPM to microseconds per quarter note (rounded to nearest int, as MIDI requires)."""
+    return round(MICROSECONDS_PER_MINUTE / bpm)
 
 
 def _parse_key_signature(key_str: str) -> str:
