@@ -661,3 +661,136 @@ def test_youve_got_a_way_sample():
     assert verse1.name == "Verse 1"
     assert verse1.bar_count == 12
     assert len(verse1.bars) == 12
+
+
+def test_section_closes_when_bar_count_met():
+    """A section ends the moment its declared bar count is reached; a following
+    valid header starts a new section even with no blank line between them."""
+    content = """
+[V1 - 4 bars]
+| 0 | 1 | 2 | 3 |
+| C | F | G | C |
+[V2 - 4 bars, same-row]
+| 4 | 5 | 6 | 7 |
+| C | F | G | C |
+"""
+    doc = parse_songml(content)
+    sections = [item for item in doc.items if isinstance(item, Section)]
+    assert [s.name for s in sections] == ["V1", "V2"]
+    assert all(len(s.bars) == 4 for s in sections)
+    assert sections[1].same_row is True
+
+
+def test_mistyped_header_after_completed_section_is_not_swallowed():
+    """A bracketed line that fails header parsing (here: missing the '-') must
+    raise, not be skipped so the next section's rows bleed into this one.
+
+    This is the blackened-blue.songml failure: '[V2b.2 4 bars, same-row]' with
+    no dash was silently dropped, and V2b.1 ended up with 8 bars instead of 4.
+    """
+    content = """
+[V1 - 4 bars]
+| 0 | 1 | 2 | 3 |
+| C | F | G | C |
+[V2 4 bars, same-row]
+| 4 | 5 | 6 | 7 |
+| C | F | G | C |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "must declare bar count" in str(exc_info.value)
+    assert exc_info.value.line_number == 5  # the mistyped header, not the V1 header
+
+
+def test_mistyped_header_while_previous_section_under_count():
+    """Same, but the previous section hasn't met its bar count yet, so the bad
+    header is seen from inside section-content parsing."""
+    content = """
+[V1 - 8 bars]
+| 0 | 1 |
+| C | F |
+[V2 4 bars]
+| 2 | 3 | 4 | 5 |
+| C | F | G | C |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "must declare bar count" in str(exc_info.value)
+    assert exc_info.value.line_number == 5
+
+
+def test_stray_text_inside_section_body_raises():
+    """Non-blank, non-comment text inside a section body (before the bar count
+    is met) is a ParseError - use a comment for notes in the song body."""
+    content = """
+[V1 - 8 bars]
+| 0 | 1 |
+| C | F |
+TODO fix this bridge
+| 2 | 3 |
+| G | C |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "Unexpected text inside section" in str(exc_info.value)
+    assert exc_info.value.line_number == 5
+
+
+def test_comment_inside_section_body_still_allowed():
+    """A '#' or '//' line inside a section body is fine and does not split it."""
+    content = """
+[V1 - 4 bars]
+| 0 | 1 |
+| C | F |
+# second half
+// still going
+| 2 | 3 |
+| G | C |
+"""
+    doc = parse_songml(content)
+    section = next(item for item in doc.items if isinstance(item, Section))
+    assert len(section.bars) == 4
+
+
+def test_extra_bar_row_after_full_section_raises():
+    """Bars split across groups that overshoot the declared count are rejected,
+    not silently dropped (early-close leaves the extra row at the top level)."""
+    content = """
+[V1 - 2 bars]
+| 0 | 1 |
+| C | F |
+| 2 | 3 |
+| G | C |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "already has its declared 2 bars" in str(exc_info.value)
+    assert exc_info.value.line_number == 5
+
+
+def test_bar_row_before_any_section_raises():
+    """A bar row with no section header above it anywhere is a ParseError."""
+    content = """
+Title: Test
+| 0 | 1 |
+| C | F |
+"""
+    with pytest.raises(ParseError) as exc_info:
+        parse_songml(content)
+    assert "outside any section" in str(exc_info.value)
+
+
+def test_free_text_before_first_section_still_allowed():
+    """Free-form notes outside section bodies remain legal (spec section 2)."""
+    content = """
+Some notes about the arrangement.
+TODO: rework the bridge
+
+Title: Test
+[V1 - 2 bars]
+| 0 | 1 |
+| C | F |
+"""
+    doc = parse_songml(content)
+    text_blocks = [item for item in doc.items if isinstance(item, TextBlock)]
+    assert any("notes about the arrangement" in "".join(tb.lines) for tb in text_blocks)

@@ -93,11 +93,21 @@ def parse_songml(content: str) -> Document:
     document = Document()
     current_text_block: TextBlock | None = None
     current_section: Section | None = None
+    # The section that just met its declared bar count, if the previous
+    # structural line closed one. Carried across blank/comment lines only, so
+    # the next structural line can blame it for a stray trailing bar row.
+    just_completed: Section | None = None
     section_names_seen: set[str] = set()
 
     line_num = 0
     while line_num < len(lines):
         line = lines[line_num]
+
+        # A completed section stays "blamable" across blank/comment lines but
+        # not across any real content line.
+        completed = just_completed
+        if line.strip() and not is_comment_line(line):
+            just_completed = None
 
         # Try to parse as property
         prop_match = re.match(r"^([A-Z][A-Za-z]*)\s*:\s*(.+)$", line.strip())
@@ -171,7 +181,30 @@ def parse_songml(content: str) -> Document:
         if current_section and "|" in line and not is_comment_line(line):
             # Parse section content starting from this line
             line_num = _parse_section_content(lines, line_num, current_section, property_state)
+            # A section closes as soon as its declared bar count is met; finalize
+            # it now so any following lines are parsed as fresh top-level items
+            # rather than being absorbed into this (already complete) section.
+            if len(current_section.bars) >= current_section.bar_count:
+                _finalize_section(current_section, document)
+                just_completed = current_section
+                current_section = None
             continue
+
+        # A bar row with no section to hold it: don't fold it silently into a
+        # text block. Either a section header is missing above it, or the
+        # section it belongs to already met its declared bar count.
+        if "|" in line and not is_comment_line(line):
+            if completed is not None:
+                raise ParseError(
+                    f'Section "{completed.name}" already has its declared '
+                    f"{completed.bar_count} bars; this extra bar row belongs to no "
+                    "section (miscounted bars, or a missing section header?)",
+                    line_num + 1,
+                )
+            raise ParseError(
+                "Bar row outside any section - missing a section header above it?",
+                line_num + 1,
+            )
 
         # Otherwise, accumulate as text block
         if current_section:
@@ -256,13 +289,36 @@ def _parse_section_content(
         if SECTION_HEADER_RE.match(line.strip()):
             break
 
-        # Not a bar-delimited row - might be text between groups, or end of section
+        # No '|', and not blank / comment / property / section header (all
+        # handled above): the parser can't place this line inside a section.
+        # Bail instead of silently skipping it — a mistyped section header such
+        # as "[V2 4 bars]" (missing the "-") or "[V2 - 4 bar]" lands here, and
+        # quietly dropping it lets the next section's rows bleed into this one.
+        # Free text belongs outside section bodies, or in a comment ("#" / "//").
         if "|" not in line:
-            line_num += 1
-            continue
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                raise ParseError(
+                    f'Section "{stripped[1:-1].strip()}" must declare bar count. '
+                    "Use format: [Section Name - N bars]",
+                    line_num + 1,
+                )
+            raise ParseError(
+                f'Unexpected text inside section "{section.name}": {stripped!r}. '
+                "Inside a section only bar rows, comments, and blank lines are "
+                "allowed; a section header must match [Name - N bars].",
+                line_num + 1,
+            )
 
         # Parse a row group: bar-numbers, chords, optional lyrics
         line_num = _parse_row_group(lines, line_num, section, property_state)
+
+        # A section is complete once its declared bar count is reached. Stop here
+        # so whatever follows is parsed as a fresh top-level item rather than
+        # being absorbed into this section. _finalize_section (via the caller)
+        # raises if this group overshot the declared count.
+        if len(section.bars) >= section.bar_count:
+            break
 
     return line_num
 

@@ -35,10 +35,13 @@ Time: 4/4
 
 ## 2. Comments and Notes
 
-- `//` starts an end-of-line comment
-- Any line that doesn't match a recognized pattern is ignored
+- `#` or `//` at the start of a line makes the whole line a comment
+- `//` also starts an end-of-line comment
+- **Outside section bodies**, any line that doesn't match a recognized
+  pattern is ignored and kept as a free-text note
 
-This means you can write whatever you want:
+This means that between sections (or before the first one) you can write
+whatever you want:
 ```
 Note: This is just explanatory text
 TODO: Fix the bridge
@@ -46,6 +49,13 @@ Key: Cmaj  // This is a comment
 
 The validator will warn about beat counts but won't reject the file.
 ```
+
+**Inside a section body this does not apply.** From a section header until
+its bar count is met, only bar rows (`| ... |`), comment lines, and blank
+lines are allowed. Anything else — a stray note, or a mistyped section
+header such as `[V2 4 bars]` (missing the `-`) — is a hard parse error,
+so a typo can't silently swallow the rows that follow it. Use a `#` / `//`
+comment for notes in the middle of a song.
 
 
 ---
@@ -67,6 +77,20 @@ The parser recognizes only `[Section Name - NN bars]` format. Bar counts are req
 
 The parser aborts with an error if a section header lacks a bar count.
 The parser warns on duplicate section names
+
+A section **closes as soon as its declared bar count is reached.** Whatever
+comes next is parsed as a new top-level item (section, property, or
+free-text note), not as more of the section just closed. Two consequences:
+
+- A following valid header starts a new section even with no blank line
+  between them.
+- Extra bar rows beyond the declared count — including bars spread across
+  several row-groups that overshoot — are a parse error, not silently
+  dropped. (A single row-group that overshoots is likewise rejected.)
+
+If fewer bars than declared are given, the section stays open until the
+next header/property/end-of-file and the missing trailing bars are
+synthesized empty.
 
 ### Layout hint: `same-row`
 
