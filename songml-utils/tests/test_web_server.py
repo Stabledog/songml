@@ -322,3 +322,189 @@ class TestForceFreePort:
 
         assert _force_free_port(9013) is True
         assert calls == []
+
+import json
+
+
+def _make_post_request(handler_cls, payload: dict) -> tuple[int, dict]:
+    """POST a JSON payload to /api/save; return (status_code, parsed JSON body)."""
+    raw = json.dumps(payload).encode("utf-8")
+    handler = object.__new__(handler_cls)
+    handler.send_response = Mock()
+    handler.send_header = Mock()
+    handler.end_headers = Mock()
+    handler.wfile = BytesIO()
+    handler.rfile = BytesIO(raw)
+    handler.headers = {"Content-Length": str(len(raw))}
+    handler.path = "/api/save"
+    handler.command = "POST"
+    handler.log_date_time_string = Mock(return_value="00:00:00")
+
+    handler.do_POST()
+
+    status = handler.send_response.call_args[0][0]
+    body = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    return status, body
+
+
+_WARN_SONGML = """\
+Title: Warn Song
+Key: Cmaj
+Tempo: 120
+Time: 4/4
+
+[Intro - 2 bars]
+|  0  |  1  |
+| C   | G   |
+
+[Intro - 2 bars]
+|  2  |  3  |
+| Am  | F   |
+"""
+
+
+class TestApiSource:
+    def test_disabled_without_server_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, _ = _make_request(handler_cls, "GET", "/api/source?path=test.songml&token=x")
+        assert status == 503
+
+    def test_rejects_missing_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_request(handler_cls, "GET", "/api/source?path=test.songml")
+        assert status == 403
+
+    def test_rejects_wrong_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_request(handler_cls, "GET", "/api/source?path=test.songml&token=wrong")
+        assert status == 403
+
+    def test_returns_content(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, body = _make_request(
+            handler_cls, "GET", "/api/source?path=test.songml&token=secret"
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is True
+        assert data["content"] == _MINIMAL_SONGML
+
+    def test_rejects_path_traversal(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_request(
+            handler_cls, "GET", "/api/source?path=../evil.songml&token=secret"
+        )
+        assert status == 403
+
+    def test_404_for_missing_song(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_request(
+            handler_cls, "GET", "/api/source?path=nope.songml&token=secret"
+        )
+        assert status == 404
+
+    def test_rejects_non_songml(self, tmp_path):
+        (tmp_path / "notes.txt").write_text("hi", encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_request(
+            handler_cls, "GET", "/api/source?path=notes.txt&token=secret"
+        )
+        assert status == 404
+
+
+class TestApiSave:
+    def test_disabled_without_server_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, _ = _make_post_request(
+            handler_cls, {"path": "test.songml", "content": _MINIMAL_SONGML, "token": "x"}
+        )
+        assert status == 503
+
+    def test_rejects_wrong_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = _make_post_request(
+            handler_cls, {"path": "test.songml", "content": _MINIMAL_SONGML, "token": "wrong"}
+        )
+        assert status == 403
+        assert data["ok"] is False
+        assert (tmp_path / "test.songml").read_text(encoding="utf-8") == _MINIMAL_SONGML
+
+    def test_saves_valid_content(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        new_content = _MINIMAL_SONGML.replace("Test Song", "Edited Song")
+        status, data = _make_post_request(
+            handler_cls, {"path": "test.songml", "content": new_content, "token": "secret"}
+        )
+        assert status == 200
+        assert data["ok"] is True
+        assert isinstance(data["warnings"], list)
+        assert (tmp_path / "test.songml").read_text(encoding="utf-8") == new_content
+
+    def test_rejects_unparseable_content(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = _make_post_request(
+            handler_cls, {"path": "test.songml", "content": "[Verse]\n| C | G |\n", "token": "secret"}
+        )
+        assert status == 422
+        assert data["ok"] is False
+        assert "error" in data
+        # file untouched
+        assert (tmp_path / "test.songml").read_text(encoding="utf-8") == _MINIMAL_SONGML
+
+    def test_warnings_do_not_block_save(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = _make_post_request(
+            handler_cls, {"path": "test.songml", "content": _WARN_SONGML, "token": "secret"}
+        )
+        assert status == 200
+        assert data["ok"] is True
+        assert len(data["warnings"]) > 0
+        assert (tmp_path / "test.songml").read_text(encoding="utf-8") == _WARN_SONGML
+
+    def test_rejects_path_traversal(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_post_request(
+            handler_cls, {"path": "../evil.songml", "content": _MINIMAL_SONGML, "token": "secret"}
+        )
+        assert status == 403
+        assert not (tmp_path.parent / "evil.songml").exists()
+
+    def test_rejects_non_songml(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = _make_post_request(
+            handler_cls, {"path": "notes.txt", "content": "hi", "token": "secret"}
+        )
+        assert status == 404
+
+    def test_rejects_missing_content(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = _make_post_request(handler_cls, {"path": "test.songml", "token": "secret"})
+        assert status == 400
+        assert data["ok"] is False
+
+
+class TestEditButton:
+    def test_song_page_has_edit_button_when_token_set(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, body = _make_request(handler_cls, "GET", "/song/test.songml")
+        assert status == 200
+        assert 'id="songml-edit-btn"' in body
+        assert '"secret"' in body  # token embedded in the page JS
+
+    def test_song_page_has_no_edit_button_without_token(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, body = _make_request(handler_cls, "GET", "/song/test.songml")
+        assert status == 200
+        assert "songml-edit-btn" not in body

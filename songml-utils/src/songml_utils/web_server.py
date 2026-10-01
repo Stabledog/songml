@@ -5,14 +5,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import errno
+import json
 import os
+import secrets
 import signal
 import sys
 import tempfile
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .chord_voicings import DEFAULT_VOICINGS_PATH, find_local_voicings_path
 from .html_exporter import _CSS, to_html_string
@@ -30,9 +32,13 @@ li{margin:.4rem 0;font-size:1rem}
 )
 
 
+_MAX_SAVE_BYTES = 1_000_000  # max POST /api/save body
+
+
 class _Handler(BaseHTTPRequestHandler):
     root: Path
     bars_per_row: int
+    write_token: str | None = None
 
     def log_message(self, format, *args):  # noqa: A002
         sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
@@ -41,6 +47,8 @@ class _Handler(BaseHTTPRequestHandler):
         path = unquote(self.path).split("?")[0]
         if path == "/":
             self._serve_index()
+        elif path == "/api/source":
+            self._serve_source()
         elif path.startswith("/song/"):
             self._serve_song(path[len("/song/") :])
         elif path.startswith("/midi/"):
@@ -50,6 +58,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         self.do_GET()
+
+    def do_POST(self):
+        path = unquote(self.path).split("?")[0]
+        if path == "/api/save":
+            self._handle_save()
+        else:
+            self._send(404, "text/plain", b"Not found")
 
     def _serve_index(self):
         files = sorted(self.__class__.root.rglob("*.songml"))
@@ -85,6 +100,9 @@ class _Handler(BaseHTTPRequestHandler):
                 bars_per_row=self.__class__.bars_per_row,
                 back_url="/",
                 midi_url=f"/midi/{rel_path}",
+                editable=bool(self.__class__.write_token),
+                write_token=self.__class__.write_token,
+                song_path=rel_path,
             )
             self._send(200, "text/html; charset=utf-8", rendered.encode())
         except ParseError as e:
@@ -129,6 +147,121 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(500, "text/plain", str(e).encode())
 
+    def _resolve_target(self, rel_path: str) -> Path | None:
+        # Resolve rel_path under the song root; return None if it escapes.
+        base = self.__class__.root.resolve()
+        target = (base / rel_path).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            return None
+        return target
+
+    def _check_token(self, provided: object) -> bool:
+        # Gate for the editing endpoints. Sends the error response when the
+        # check fails. 503 when the server has no token (editing disabled),
+        # 403 on mismatch. Tokens are compared with compare_digest.
+        expected = self.__class__.write_token
+        if not expected:
+            self._send(
+                503,
+                "application/json",
+                b'{"ok":false,"error":"editing is not enabled on this server"}',
+            )
+            return False
+        if not isinstance(provided, str) or not secrets.compare_digest(provided, expected):
+            self._send(
+                403, "application/json", b'{"ok":false,"error":"bad or missing write token"}'
+            )
+            return False
+        return True
+
+    def _song_target_or_error(self, rel_path: object) -> Path | None:
+        # Validate rel_path for the editing endpoints: must be a .songml file
+        # under the song root. Sends the error response and returns None on
+        # failure.
+        if not isinstance(rel_path, str) or not rel_path or not rel_path.endswith(".songml"):
+            self._send(404, "application/json", b'{"ok":false,"error":"not a song path"}')
+            return None
+        target = self._resolve_target(rel_path)
+        if target is None:
+            self._send(403, "application/json", b'{"ok":false,"error":"path escapes song root"}')
+            return None
+        if not target.is_file():
+            self._send(404, "application/json", b'{"ok":false,"error":"song not found"}')
+            return None
+        return target
+
+    def _serve_source(self):
+        # GET /api/source?path=<rel>&token=<token> -> {"path","content"}.
+        query = parse_qs(urlparse(self.path).query)
+        if not self._check_token(query.get("token", [None])[0]):
+            return
+        target = self._song_target_or_error(query.get("path", [None])[0])
+        if target is None:
+            return
+        try:
+            content = target.read_text(encoding="utf-8")
+        except OSError:
+            self._send(500, "application/json", b'{"ok":false,"error":"read failed"}')
+            return
+        body = json.dumps({"ok": True, "path": target.name, "content": content}).encode("utf-8")
+        self._send(200, "application/json", body)
+
+    def _handle_save(self):
+        # POST /api/save {"path","content","token"} -> parse, atomic write.
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > _MAX_SAVE_BYTES:
+            self._send(413, "application/json", b'{"ok":false,"error":"body too large or empty"}')
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._send(400, "application/json", b'{"ok":false,"error":"invalid JSON body"}')
+            return
+        if not isinstance(payload, dict):
+            self._send(400, "application/json", b'{"ok":false,"error":"invalid JSON body"}')
+            return
+        if not self._check_token(payload.get("token")):
+            return
+        content = payload.get("content")
+        if not isinstance(content, str):
+            self._send(400, "application/json", b'{"ok":false,"error":"content is required"}')
+            return
+        target = self._song_target_or_error(payload.get("path"))
+        if target is None:
+            return
+        try:
+            doc = parse_songml(content)
+        except ParseError as exc:
+            body = json.dumps({"ok": False, "error": f"parse error: {exc}"}).encode("utf-8")
+            self._send(422, "application/json", body)
+            return
+        # Atomic write: temp file in the same directory, then rename over.
+        try:
+            fd, tmp_name = tempfile.mkstemp(
+                dir=str(target.parent), prefix=".songml-save-", suffix=".tmp"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(content)
+                os.replace(tmp_name, target)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp_name)
+                raise
+        except OSError as exc:
+            body = json.dumps({"ok": False, "error": f"write failed: {exc}"}).encode("utf-8")
+            self._send(500, "application/json", body)
+            return
+        body = json.dumps({"ok": True, "path": target.name, "warnings": doc.warnings}).encode(
+            "utf-8"
+        )
+        self._send(200, "application/json", body)
+
     def _send(self, code: int, content_type: str, body: bytes):
         self.send_response(code)
         self.send_header("Content-Type", content_type)
@@ -138,12 +271,15 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
 
-def _make_handler(root: Path, bars_per_row: int) -> type[_Handler]:
+def _make_handler(
+    root: Path, bars_per_row: int, write_token: str | None = None
+) -> type[_Handler]:
     class Handler(_Handler):
         pass
 
     Handler.root = root
     Handler.bars_per_row = bars_per_row
+    Handler.write_token = write_token
     return Handler
 
 
@@ -270,7 +406,8 @@ def main() -> int:
         print(f"Error: {root} is not a directory", file=sys.stderr)
         return 1
 
-    handler = _make_handler(root, args.bars_per_row)
+    write_token = os.environ.get("SONGML_WRITE_TOKEN") or None
+    handler = _make_handler(root, args.bars_per_row, write_token)
     try:
         server = ThreadingHTTPServer(("0.0.0.0", args.port), handler)
     except OSError as e:
@@ -297,6 +434,10 @@ def main() -> int:
 
     print(f"SongML server:  http://localhost:{args.port}/")
     print(f"Serving files:  {root}")
+    print(
+        "Editing:        "
+        + ("enabled" if write_token else "disabled (set SONGML_WRITE_TOKEN to enable)")
+    )
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()

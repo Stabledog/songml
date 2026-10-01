@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__ = ["to_html_string"]
 
 import html as _html
+import json as _json
 from typing import NamedTuple
 
 from .ast import Bar, Document, Property, Section
@@ -40,6 +41,17 @@ h1{font-size:1.8rem;margin:0 0 .2rem}
   font-size:.8rem;font-weight:600;text-decoration:none;white-space:nowrap
 }
 .midi-btn:hover{background:#1557b0;text-decoration:none;color:#fff}
+.edit-btn{
+  padding:.25rem .75rem;background:#0b8043;color:#fff;border:none;border-radius:4px;
+  font-size:.8rem;font-weight:600;white-space:nowrap;cursor:pointer
+}
+.edit-btn:hover{background:#076b37}
+#songml-edit-overlay{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column}
+.songml-edit-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:#f1f3f4;border-bottom:1px solid #dadce0}
+.songml-edit-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songml-edit-warn{color:#b06000;font-size:.85rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songml-edit-bar button{padding:.35rem .9rem;font-size:.9rem;cursor:pointer}
+.songml-edit-body{flex:1;min-height:0;overflow:auto}
 .meta{color:#555;font-size:.9rem;margin-bottom:1.25rem}
 .strip{margin-bottom:.6rem;border:1px solid #bbb;border-radius:4px;overflow:hidden}
 .section-label{
@@ -76,11 +88,154 @@ a:hover{text-decoration:underline}
 """
 
 
+_EDIT_CSS = '''
+.edit-btn{
+  padding:.25rem .75rem;background:#0b8043;color:#fff;border:none;border-radius:4px;
+  font-size:.8rem;font-weight:600;white-space:nowrap;cursor:pointer
+}
+.edit-btn:hover{background:#076b37}
+#songml-edit-overlay{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column}
+.songml-edit-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:#f1f3f4;border-bottom:1px solid #dadce0}
+.songml-edit-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songml-edit-warn{color:#b06000;font-size:.85rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songml-edit-bar button{padding:.35rem .9rem;font-size:.9rem;cursor:pointer}
+.songml-edit-body{flex:1;min-height:0;overflow:auto}
+'''
+
+_EDIT_JS = '''
+// SongML in-browser editor overlay. Injected by songml-serve only when editing
+// is enabled (SONGML_WRITE_TOKEN set). __REL_PATH__ and __WRITE_TOKEN__ are
+// substituted server-side with JSON-quoted values.
+(function () {
+  'use strict';
+  var REL_PATH = __REL_PATH__;
+  var WRITE_TOKEN = __WRITE_TOKEN__;
+  var VEDITOR_BASE = 'https://stabledog.github.io/veditor.web';
+  var btn = document.getElementById('songml-edit-btn');
+  if (!btn) return;
+
+  var overlay = null;
+  var veditor = null;
+  var openedContent = '';
+  var savedContent = '';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+
+  function ensureCss() {
+    if (document.getElementById('songml-veditor-css')) return;
+    var link = document.createElement('link');
+    link.id = 'songml-veditor-css';
+    link.rel = 'stylesheet';
+    link.href = VEDITOR_BASE + '/veditor.css?v=' + Date.now();
+    document.head.appendChild(link);
+  }
+
+  async function openOverlay() {
+    if (overlay) return;
+    var resp;
+    try {
+      resp = await fetch('/api/source?path=' + encodeURIComponent(REL_PATH));
+    } catch (e) {
+      alert('Could not load source: ' + e);
+      return;
+    }
+    if (!resp.ok) { alert('Could not load source (HTTP ' + resp.status + ')'); return; }
+    var data = await resp.json();
+    openedContent = data.content || '';
+    savedContent = openedContent;
+
+    ensureCss();
+
+    overlay = document.createElement('div');
+    overlay.id = 'songml-edit-overlay';
+    overlay.innerHTML =
+      '<div class="songml-edit-bar">' +
+        '<span class="songml-edit-title">Editing ' + esc(REL_PATH) + '</span>' +
+        '<span class="songml-edit-warn" id="songml-edit-warn"></span>' +
+        '<button type="button" id="songml-edit-save">Save</button>' +
+        '<button type="button" id="songml-edit-close">Close</button>' +
+      '</div>' +
+      '<div class="songml-edit-body" id="songml-edit-body"></div>';
+    document.body.appendChild(overlay);
+    document.getElementById('songml-edit-save').addEventListener('click', doSave);
+    document.getElementById('songml-edit-close').addEventListener('click', doClose);
+
+    try {
+      veditor = await import(VEDITOR_BASE + '/veditor.js?v=' + Date.now());
+    } catch (e) {
+      alert('Could not load editor: ' + e);
+      closeOverlay();
+      return;
+    }
+    veditor.createEditor(
+      document.getElementById('songml-edit-body'),
+      openedContent,
+      { onSave: doSave, onQuit: doClose },
+      { storagePrefix: 'songml' }
+    );
+    if (veditor.isVimMode()) veditor.toggleVimMode(); // CUA is the default here
+    veditor.focusEditor();
+  }
+
+  async function doSave() {
+    if (!veditor) return;
+    var warnEl = document.getElementById('songml-edit-warn');
+    var content = veditor.getEditorContent();
+    warnEl.textContent = 'Saving\u2026';
+    var resp, data;
+    try {
+      resp = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: REL_PATH, content: content, token: WRITE_TOKEN })
+      });
+      data = await resp.json();
+    } catch (e) {
+      warnEl.textContent = 'Save failed: ' + e;
+      return;
+    }
+    if (resp.ok && data.ok) {
+      savedContent = content;
+      warnEl.textContent = (data.warnings && data.warnings.length)
+        ? 'Saved with ' + data.warnings.length + ' warning(s): ' + data.warnings.join('; ')
+        : 'Saved.';
+    } else {
+      warnEl.textContent = 'Save failed: ' + (data.error || ('HTTP ' + resp.status));
+    }
+  }
+
+  function doClose() {
+    if (veditor && veditor.isEditorDirty(savedContent)) {
+      if (!window.confirm('Discard unsaved changes?')) return;
+    }
+    var changed = savedContent !== openedContent;
+    closeOverlay();
+    if (changed) window.location.reload();
+  }
+
+  function closeOverlay() {
+    try { if (veditor) veditor.destroyEditor(); } catch (e) {}
+    veditor = null;
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    overlay = null;
+  }
+
+  btn.addEventListener('click', openOverlay);
+})();
+'''
+
 def to_html_string(
     doc: Document,
     bars_per_row: int = 8,
     back_url: str | None = None,
     midi_url: str | None = None,
+    editable: bool = False,
+    write_token: str | None = None,
+    song_path: str | None = None,
 ) -> str:
     title = _prop(doc, "Title", "Untitled")
     key = _prop(doc, "Key", "")
@@ -153,22 +308,38 @@ def to_html_string(
         if midi_url
         else ""
     )
+    can_edit = bool(editable and write_token and song_path)
+    edit_btn = (
+        '<button type="button" class="edit-btn" id="songml-edit-btn">\u270e Edit</button>'
+        if can_edit
+        else ""
+    )
+    edit_css = _EDIT_CSS if can_edit else ""
+    edit_script = (
+        "<script>\n"
+        + _EDIT_JS.replace("__REL_PATH__", _json.dumps(song_path)).replace(
+            "__WRITE_TOKEN__", _json.dumps(write_token)
+        )
+        + "\n</script>"
+        if can_edit
+        else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{t}</title>
-<style>{_CSS}</style>
+<style>{_CSS}{edit_css}</style>
 </head>
 <body>
 <div class="song">
 {back_html}
-<div class="title-row"><h1>{t}</h1>{midi_btn}</div>
+<div class="title-row"><h1>{t}</h1>{midi_btn}{edit_btn}</div>
 <div class="meta">{" &bull; ".join(meta_parts)}</div>
 {"".join(strips)}
 </div>
-</body>
+{edit_script}</body>
 </html>"""
 
 
