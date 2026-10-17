@@ -271,9 +271,7 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
 
-def _make_handler(
-    root: Path, bars_per_row: int, write_token: str | None = None
-) -> type[_Handler]:
+def _make_handler(root: Path, bars_per_row: int, write_token: str | None = None) -> type[_Handler]:
     class Handler(_Handler):
         pass
 

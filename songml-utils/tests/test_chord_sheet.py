@@ -5,8 +5,7 @@ from __future__ import annotations
 import pytest
 
 from songml_utils.als_parser import ChordEntry, FixmeEntry
-from songml_utils.chord_sheet import SheetEntry, SheetHeader, format_sheet, parse_sheet
-
+from songml_utils.chord_sheet import SheetEntry, format_sheet, parse_sheet
 
 # ---------------------------------------------------------------------------
 # format_sheet
@@ -43,11 +42,15 @@ class TestFormatSheet:
             ChordEntry(bar=3, beat=1.0, chord="Am", duration=4.0),
         ]
         text = format_sheet(entries, source="s.als", track="CHORD")
-        lines = [l for l in text.splitlines() if l.strip() and not l.startswith("#") or "FIXME" in l]
+        lines = [
+            line
+            for line in text.splitlines()
+            if line.strip() and not line.startswith("#") or "FIXME" in line
+        ]
         # C comes before FIXME comes before Am in the output
-        c_pos = next(i for i, l in enumerate(lines) if "C" in l and "FIXME" not in l)
-        fixme_pos = next(i for i, l in enumerate(lines) if "FIXME" in l)
-        am_pos = next(i for i, l in enumerate(lines) if "Am" in l and "FIXME" not in l)
+        c_pos = next(i for i, line in enumerate(lines) if "C" in line and "FIXME" not in line)
+        fixme_pos = next(i for i, line in enumerate(lines) if "FIXME" in line)
+        am_pos = next(i for i, line in enumerate(lines) if "Am" in line and "FIXME" not in line)
         assert c_pos < fixme_pos < am_pos
 
     def test_half_bar_positions(self):
@@ -72,16 +75,18 @@ class TestFormatSheet:
 
 class TestParseSheet:
     def test_parses_clean_sheet(self):
-        text = "\n".join([
-            "# Source: song.als",
-            "# Track: 🎵 CHORD",
-            "# Tempo: 120",
-            "# Time: 4/4",
-            "",
-            "  1:1  C             4",
-            "  2:1  Am            4",
-            "  3:1  F             4",
-        ])
+        text = "\n".join(
+            [
+                "# Source: song.als",
+                "# Track: 🎵 CHORD",
+                "# Tempo: 120",
+                "# Time: 4/4",
+                "",
+                "  1:1  C             4",
+                "  2:1  Am            4",
+                "  3:1  F             4",
+            ]
+        )
         header, entries = parse_sheet(text)
         assert header.source == "song.als"
         assert header.tempo == 120.0
@@ -91,27 +96,31 @@ class TestParseSheet:
         assert entries[2] == SheetEntry(bar=3, beat=1.0, chord="F", duration=4.0)
 
     def test_raises_on_fixme(self):
-        text = "\n".join([
-            "# Source: song.als",
-            "# Track: CHORD",
-            "# Tempo: 120",
-            "# Time: 4/4",
-            "",
-            "  1:1  C    4",
-            "# FIXME [2:1]: duration mismatch (raw: 'Bm7.E7.')",
-            "  3:1  Am   4",
-        ])
+        text = "\n".join(
+            [
+                "# Source: song.als",
+                "# Track: CHORD",
+                "# Tempo: 120",
+                "# Time: 4/4",
+                "",
+                "  1:1  C    4",
+                "# FIXME [2:1]: duration mismatch (raw: 'Bm7.E7.')",
+                "  3:1  Am   4",
+            ]
+        )
         with pytest.raises(ValueError, match="FIXME"):
             parse_sheet(text)
 
     def test_fixme_error_lists_all_fixmes(self):
-        text = "\n".join([
-            "# Tempo: 120",
-            "# Time: 4/4",
-            "  1:1  C    4",
-            "# FIXME [2:1]: first problem",
-            "# FIXME [3:1]: second problem",
-        ])
+        text = "\n".join(
+            [
+                "# Tempo: 120",
+                "# Time: 4/4",
+                "  1:1  C    4",
+                "# FIXME [2:1]: first problem",
+                "# FIXME [3:1]: second problem",
+            ]
+        )
         with pytest.raises(ValueError) as exc:
             parse_sheet(text)
         msg = str(exc.value)
@@ -170,7 +179,7 @@ class TestRoundTrip:
         assert header.tempo == 95.0
         assert header.time_sig == "4/4"
         assert len(parsed) == len(original)
-        for orig, result in zip(original, parsed):
+        for orig, result in zip(original, parsed, strict=True):
             assert result.bar == orig.bar
             assert result.beat == orig.beat
             assert result.chord == orig.chord

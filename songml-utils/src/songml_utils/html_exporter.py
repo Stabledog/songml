@@ -88,7 +88,7 @@ a:hover{text-decoration:underline}
 """
 
 
-_EDIT_CSS = '''
+_EDIT_CSS = """
 .edit-btn{
   padding:.25rem .75rem;background:#0b8043;color:#fff;border:none;border-radius:4px;
   font-size:.8rem;font-weight:600;white-space:nowrap;cursor:pointer
@@ -100,9 +100,9 @@ _EDIT_CSS = '''
 .songml-edit-warn{color:#b06000;font-size:.85rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .songml-edit-bar button{padding:.35rem .9rem;font-size:.9rem;cursor:pointer}
 .songml-edit-body{flex:1;min-height:0;overflow:auto}
-'''
+"""
 
-_EDIT_JS = '''
+_EDIT_JS = """
 // SongML in-browser editor overlay. Injected by songml-serve only when editing
 // is enabled (SONGML_WRITE_TOKEN set). __REL_PATH__ and __WRITE_TOKEN__ are
 // substituted server-side with JSON-quoted values.
@@ -226,7 +226,8 @@ _EDIT_JS = '''
 
   btn.addEventListener('click', openOverlay);
 })();
-'''
+"""
+
 
 def to_html_string(
     doc: Document,
@@ -283,9 +284,7 @@ def to_html_string(
     if open_row is not None:
         rows.append(open_row)
 
-    strips = [
-        _render_row(row, cols_per_bar, max_cols, beats_per_bar, tempo) for row in rows
-    ]
+    strips = [_render_row(row, cols_per_bar, max_cols, beats_per_bar, tempo) for row in rows]
 
     meta_parts = [
         p

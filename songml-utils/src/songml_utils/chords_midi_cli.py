@@ -9,7 +9,12 @@ from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 from .chord_sheet import parse_sheet
 from .chord_voicings import MIDDLE_C_OCTAVE, get_chord_notes
-from .midi_exporter import MICROSECONDS_PER_MINUTE, TICKS_PER_BEAT, DEFAULT_VELOCITY, DEFAULT_CHANNEL
+from .midi_exporter import (
+    DEFAULT_CHANNEL,
+    DEFAULT_VELOCITY,
+    MICROSECONDS_PER_MINUTE,
+    TICKS_PER_BEAT,
+)
 
 type MidiEvent = tuple[int, str, list[int]]
 
@@ -110,14 +115,24 @@ def main() -> None:
         if event_type == "note_on":
             for i, note in enumerate(notes):
                 track.append(
-                    Message("note_on", note=note, velocity=DEFAULT_VELOCITY,
-                            time=delta if i == 0 else 0, channel=DEFAULT_CHANNEL)
+                    Message(
+                        "note_on",
+                        note=note,
+                        velocity=DEFAULT_VELOCITY,
+                        time=delta if i == 0 else 0,
+                        channel=DEFAULT_CHANNEL,
+                    )
                 )
         else:
             for i, note in enumerate(notes):
                 track.append(
-                    Message("note_off", note=note, velocity=0,
-                            time=delta if i == 0 else 0, channel=DEFAULT_CHANNEL)
+                    Message(
+                        "note_off",
+                        note=note,
+                        velocity=0,
+                        time=delta if i == 0 else 0,
+                        channel=DEFAULT_CHANNEL,
+                    )
                 )
         current_tick = tick
 

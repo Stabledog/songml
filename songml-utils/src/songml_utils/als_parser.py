@@ -101,7 +101,7 @@ def _parse_compound_name(name: str, duration: float) -> list[tuple[str, float]] 
     tokens = re.findall(r"[^.]+|\.+", name)
 
     if not tokens:
-        return f"empty clip name"
+        return "empty clip name"
 
     if len(tokens) == 1:
         # Simple chord with no dots
@@ -231,14 +231,16 @@ def _get_arrangement_clips(track: ET.Element) -> list[tuple[str, float, float]]:
         rounded_end = round(end)
         if abs(end - rounded_end) > 0.01:
             print(
-                f"Warning: clip {clip_name!r} ends off-grid at {end:.4f}, "
-                f"rounded to {rounded_end}",
+                f"Warning: clip {clip_name!r} ends off-grid at {end:.4f}, rounded to {rounded_end}",
                 file=sys.stderr,
             )
         duration = float(rounded_end) - start
 
         if duration <= 0:
-            print(f"Warning: clip {clip_name!r} has zero or negative duration, skipped", file=sys.stderr)
+            print(
+                f"Warning: clip {clip_name!r} has zero or negative duration, skipped",
+                file=sys.stderr,
+            )
             continue
 
         result.append((clip_name, start, duration))

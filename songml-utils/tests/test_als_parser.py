@@ -16,7 +16,6 @@ from songml_utils.als_parser import (
     extract_chord_clips,
 )
 
-
 # ---------------------------------------------------------------------------
 # _to_bar_beat
 # ---------------------------------------------------------------------------
@@ -181,11 +180,14 @@ def _write_als(tmp_path: Path, clips: list[tuple[str, float, float]]) -> Path:
 
 class TestExtractChordClips:
     def test_simple_single_chords(self, tmp_path):
-        path = _write_als(tmp_path, [
-            ("C", 0.0, 4.0),
-            ("Am", 4.0, 8.0),
-            ("F", 8.0, 12.0),
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("C", 0.0, 4.0),
+                ("Am", 4.0, 8.0),
+                ("F", 8.0, 12.0),
+            ],
+        )
         track_name, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert track_name == "🎵 CHORD"
@@ -197,9 +199,12 @@ class TestExtractChordClips:
         assert entries[2] == ChordEntry(bar=3, beat=1.0, chord="F", duration=4.0)
 
     def test_compound_clip_expands(self, tmp_path):
-        path = _write_als(tmp_path, [
-            ("Gsus4..G7sus4..", 0.0, 4.0),
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("Gsus4..G7sus4..", 0.0, 4.0),
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert len(entries) == 2
@@ -208,9 +213,16 @@ class TestExtractChordClips:
 
     def test_compound_clip_crossing_bar(self, tmp_path):
         # A compound clip that crosses a bar boundary
-        path = _write_als(tmp_path, [
-            ("Am..F", 2.0, 6.0),  # 4-beat clip: Am for 2 (bar 1 beats 3-4), F for 2 (bar 2 beats 1-2)
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                (
+                    "Am..F",
+                    2.0,
+                    6.0,
+                ),  # 4-beat clip: Am for 2 (bar 1 beats 3-4), F for 2 (bar 2 beats 1-2)
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert len(entries) == 2
@@ -218,9 +230,12 @@ class TestExtractChordClips:
         assert entries[1] == ChordEntry(bar=2, beat=1.0, chord="F", duration=2.0)
 
     def test_fixme_on_bad_compound(self, tmp_path):
-        path = _write_als(tmp_path, [
-            ("Bm7.E7.", 0.0, 4.0),  # 1+1=2 ≠ 4 beats — FIXME
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("Bm7.E7.", 0.0, 4.0),  # 1+1=2 ≠ 4 beats — FIXME
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert len(entries) == 1
@@ -230,11 +245,14 @@ class TestExtractChordClips:
         assert entries[0].raw_name == "Bm7.E7."
 
     def test_mixed_good_and_fixme(self, tmp_path):
-        path = _write_als(tmp_path, [
-            ("C", 0.0, 4.0),
-            ("Bm7.E7.", 4.0, 8.0),  # FIXME
-            ("Am", 8.0, 12.0),
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("C", 0.0, 4.0),
+                ("Bm7.E7.", 4.0, 8.0),  # FIXME
+                ("Am", 8.0, 12.0),
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert len(entries) == 3
@@ -243,10 +261,13 @@ class TestExtractChordClips:
         assert isinstance(entries[2], ChordEntry)
 
     def test_half_bar_chords(self, tmp_path):
-        path = _write_als(tmp_path, [
-            ("E+13", 0.0, 2.0),
-            ("E7", 2.0, 4.0),
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("E+13", 0.0, 2.0),
+                ("E7", 2.0, 4.0),
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         assert entries[0] == ChordEntry(bar=1, beat=1.0, chord="E+13", duration=2.0)
@@ -272,9 +293,12 @@ class TestExtractChordClips:
         assert entries[0].chord == "C"
 
     def test_off_grid_clip_rounded(self, tmp_path, capsys):
-        path = _write_als(tmp_path, [
-            ("C", 0.3959, 4.0),  # slightly off-grid start
-        ])
+        path = _write_als(
+            tmp_path,
+            [
+                ("C", 0.3959, 4.0),  # slightly off-grid start
+            ],
+        )
         _, entries = extract_chord_clips(str(path), beats_per_bar=4)
 
         captured = capsys.readouterr()

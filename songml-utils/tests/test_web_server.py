@@ -1,6 +1,7 @@
 """Tests for web_server module."""
 
 import errno
+import json
 import os
 import signal
 import socket
@@ -323,8 +324,6 @@ class TestForceFreePort:
         assert _force_free_port(9013) is True
         assert calls == []
 
-import json
-
 
 def _make_post_request(handler_cls, payload: dict) -> tuple[int, dict]:
     """POST a JSON payload to /api/save; return (status_code, parsed JSON body)."""
@@ -402,17 +401,13 @@ class TestApiSource:
 
     def test_404_for_missing_song(self, tmp_path):
         handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
-        status, _ = _make_request(
-            handler_cls, "GET", "/api/source?path=nope.songml&token=secret"
-        )
+        status, _ = _make_request(handler_cls, "GET", "/api/source?path=nope.songml&token=secret")
         assert status == 404
 
     def test_rejects_non_songml(self, tmp_path):
         (tmp_path / "notes.txt").write_text("hi", encoding="utf-8")
         handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
-        status, _ = _make_request(
-            handler_cls, "GET", "/api/source?path=notes.txt&token=secret"
-        )
+        status, _ = _make_request(handler_cls, "GET", "/api/source?path=notes.txt&token=secret")
         assert status == 404
 
 
@@ -451,7 +446,8 @@ class TestApiSave:
         (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
         handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
         status, data = _make_post_request(
-            handler_cls, {"path": "test.songml", "content": "[Verse]\n| C | G |\n", "token": "secret"}
+            handler_cls,
+            {"path": "test.songml", "content": "[Verse]\n| C | G |\n", "token": "secret"},
         )
         assert status == 422
         assert data["ok"] is False
