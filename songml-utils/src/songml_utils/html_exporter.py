@@ -116,6 +116,8 @@ _EDIT_JS = """
 
   var overlay = null;
   var veditor = null;
+  var veditorModule = null;  // imported once per page load, reused across opens
+  var view = null;  // CodeMirror EditorView returned by createEditor
   var openedContent = '';
   var savedContent = '';
 
@@ -138,7 +140,8 @@ _EDIT_JS = """
     if (overlay) return;
     var resp;
     try {
-      resp = await fetch('/api/source?path=' + encodeURIComponent(REL_PATH));
+      resp = await fetch('/api/source?path=' + encodeURIComponent(REL_PATH) +
+                         '&token=' + encodeURIComponent(WRITE_TOKEN));
     } catch (e) {
       alert('Could not load source: ' + e);
       return;
@@ -156,28 +159,77 @@ _EDIT_JS = """
       '<div class="songml-edit-bar">' +
         '<span class="songml-edit-title">Editing ' + esc(REL_PATH) + '</span>' +
         '<span class="songml-edit-warn" id="songml-edit-warn"></span>' +
+        '<button type="button" id="songml-edit-format" title="Renumber bars, align columns, fix chord casing">Format</button>' +
         '<button type="button" id="songml-edit-save">Save</button>' +
         '<button type="button" id="songml-edit-close">Close</button>' +
       '</div>' +
       '<div class="songml-edit-body" id="songml-edit-body"></div>';
     document.body.appendChild(overlay);
+    document.getElementById('songml-edit-format').addEventListener('click', doFormat);
     document.getElementById('songml-edit-save').addEventListener('click', doSave);
     document.getElementById('songml-edit-close').addEventListener('click', doClose);
 
     try {
-      veditor = await import(VEDITOR_BASE + '/veditor.js?v=' + Date.now());
+      // Cache-bust once per page load, not per open: a fresh module instance
+      // per open would stack up independent copies of veditor and its vim layer.
+      if (!veditorModule) {
+        veditorModule = await import(VEDITOR_BASE + '/veditor.js?v=' + Date.now());
+      }
+      veditor = veditorModule;
     } catch (e) {
       alert('Could not load editor: ' + e);
       closeOverlay();
       return;
     }
-    veditor.createEditor(
+    // veditor restores the user's CUA/VIM choice from localStorage itself;
+    // don't override it here, or the choice never survives a close/reopen.
+    view = veditor.createEditor(
       document.getElementById('songml-edit-body'),
       openedContent,
       { onSave: doSave, onQuit: doClose },
       { storagePrefix: 'songml' }
     );
-    if (veditor.isVimMode()) veditor.toggleVimMode(); // CUA is the default here
+    veditor.focusEditor();
+  }
+
+  async function doFormat() {
+    if (!veditor || !view) return;
+    var warnEl = document.getElementById('songml-edit-warn');
+    var content = veditor.getEditorContent();
+    warnEl.textContent = 'Formatting…';
+    var resp, data;
+    try {
+      resp = await fetch('/api/format', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content, token: WRITE_TOKEN })
+      });
+      data = await resp.json();
+    } catch (e) {
+      warnEl.textContent = 'Format failed: ' + e;
+      return;
+    }
+    if (!(resp.ok && data.ok)) {
+      warnEl.textContent = 'Format failed: ' + (data.error || ('HTTP ' + resp.status));
+      return;
+    }
+    // Bail if the buffer changed while the request was in flight.
+    if (!view || veditor.getEditorContent() !== content) {
+      warnEl.textContent = 'Buffer changed during format; try again.';
+      return;
+    }
+    if (data.content !== content) {
+      // A normal edit (not setEditorContent): undoable, and leaves the buffer
+      // dirty so the formatted text still has to be saved.
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: data.content },
+        selection: { anchor: Math.min(view.state.selection.main.head, data.content.length) }
+      });
+    }
+    var what = data.content !== content ? 'Formatted (not saved yet)' : 'Already formatted';
+    warnEl.textContent = (data.warnings && data.warnings.length)
+      ? what + ', ' + data.warnings.length + ' warning(s): ' + data.warnings.join('; ')
+      : what + '.';
     veditor.focusEditor();
   }
 
@@ -220,6 +272,7 @@ _EDIT_JS = """
   function closeOverlay() {
     try { if (veditor) veditor.destroyEditor(); } catch (e) {}
     veditor = null;
+    view = null;
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
     overlay = null;
   }

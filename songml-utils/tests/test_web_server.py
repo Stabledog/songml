@@ -325,8 +325,8 @@ class TestForceFreePort:
         assert calls == []
 
 
-def _make_post_request(handler_cls, payload: dict) -> tuple[int, dict]:
-    """POST a JSON payload to /api/save; return (status_code, parsed JSON body)."""
+def _make_post_request(handler_cls, payload: dict, path: str = "/api/save") -> tuple[int, dict]:
+    """POST a JSON payload (to /api/save by default); return (status_code, parsed JSON body)."""
     raw = json.dumps(payload).encode("utf-8")
     handler = object.__new__(handler_cls)
     handler.send_response = Mock()
@@ -335,7 +335,7 @@ def _make_post_request(handler_cls, payload: dict) -> tuple[int, dict]:
     handler.wfile = BytesIO()
     handler.rfile = BytesIO(raw)
     handler.headers = {"Content-Length": str(len(raw))}
-    handler.path = "/api/save"
+    handler.path = path
     handler.command = "POST"
     handler.log_date_time_string = Mock(return_value="00:00:00")
 
@@ -489,6 +489,73 @@ class TestApiSave:
         assert data["ok"] is False
 
 
+_MISNUMBERED_SONGML = """\
+Title: Misnumbered
+Key: Cmaj
+Tempo: 120
+Time: 4/4
+
+[Verse - 2 bars]
+| 1 | 2 |
+| c | g |
+
+[Chorus - 2 bars]
+| 1 | 2 |
+| am | f |
+"""
+
+
+class TestApiFormat:
+    def _post(self, handler_cls, payload):
+        return _make_post_request(handler_cls, payload, path="/api/format")
+
+    def test_disabled_without_server_token(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8)
+        status, _ = self._post(handler_cls, {"content": _MINIMAL_SONGML, "token": "x"})
+        assert status == 503
+
+    def test_rejects_wrong_token(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = self._post(handler_cls, {"content": _MINIMAL_SONGML, "token": "wrong"})
+        assert status == 403
+        assert data["ok"] is False
+
+    def test_renumbers_bars_and_fixes_casing(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = self._post(handler_cls, {"content": _MISNUMBERED_SONGML, "token": "secret"})
+        assert status == 200
+        assert data["ok"] is True
+        assert "| 3  | 4 |" in data["content"]
+        assert "| Am | F |" in data["content"]
+        # bar continuity is fixed, not reported
+        assert data["warnings"] == []
+
+    def test_does_not_touch_disk(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MISNUMBERED_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, _ = self._post(
+            handler_cls,
+            {"path": "test.songml", "content": _MISNUMBERED_SONGML, "token": "secret"},
+        )
+        assert status == 200
+        assert (tmp_path / "test.songml").read_text(encoding="utf-8") == _MISNUMBERED_SONGML
+
+    def test_rejects_unparseable_content(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = self._post(
+            handler_cls, {"content": "[Verse]\n| C | G |\n", "token": "secret"}
+        )
+        assert status == 422
+        assert data["ok"] is False
+        assert "parse error" in data["error"]
+
+    def test_rejects_missing_content(self, tmp_path):
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        status, data = self._post(handler_cls, {"token": "secret"})
+        assert status == 400
+        assert data["ok"] is False
+
+
 class TestEditButton:
     def test_song_page_has_edit_button_when_token_set(self, tmp_path):
         (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
@@ -497,6 +564,27 @@ class TestEditButton:
         assert status == 200
         assert 'id="songml-edit-btn"' in body
         assert '"secret"' in body  # token embedded in the page JS
+
+    def test_overlay_sends_token_when_loading_source(self, tmp_path):
+        # /api/source requires the token; without it the editor can't open.
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        _, body = _make_request(handler_cls, "GET", "/song/test.songml")
+        assert "'&token=' + encodeURIComponent(WRITE_TOKEN)" in body
+
+    def test_overlay_does_not_force_cua_mode(self, tmp_path):
+        # veditor persists the CUA/VIM choice; the overlay must not reset it (#9).
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        _, body = _make_request(handler_cls, "GET", "/song/test.songml")
+        assert "toggleVimMode" not in body
+
+    def test_overlay_has_format_button(self, tmp_path):
+        (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")
+        handler_cls = _make_handler(tmp_path, bars_per_row=8, write_token="secret")
+        _, body = _make_request(handler_cls, "GET", "/song/test.songml")
+        assert 'id="songml-edit-format"' in body
+        assert "/api/format" in body
 
     def test_song_page_has_no_edit_button_without_token(self, tmp_path):
         (tmp_path / "test.songml").write_text(_MINIMAL_SONGML, encoding="utf-8")

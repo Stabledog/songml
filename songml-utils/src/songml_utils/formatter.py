@@ -341,6 +341,27 @@ def format_songml(content: str, parsed_doc=None) -> str:
     return "\n".join(output_lines)
 
 
+@dataclass
+class CleanupResult:
+    """Output of cleanup_songml: the formatted text plus warnings it didn't fix."""
+
+    content: str
+    warnings: list[str]
+
+
+def cleanup_songml(content: str) -> CleanupResult:
+    """Parse, renumber bars sequentially, and format SongML content.
+
+    This is what songml-format does to a file: bar continuity is renumbered
+    rather than reported, so only warnings that aren't fixed here are returned.
+    Raises ParseError if the content doesn't parse.
+    """
+    doc = parse_songml(content)
+    _fix_bar_numbers_in_ast(doc)
+    warnings = [w for w in doc.warnings if not is_bar_continuity_warning(w)]
+    return CleanupResult(content=format_songml(content, parsed_doc=doc), warnings=warnings)
+
+
 def _fix_bar_numbers_in_ast(doc) -> None:
     """Fix bar numbers in the AST to be sequential across all sections.
 
@@ -501,26 +522,22 @@ def main() -> None:
         with open(input_file, encoding="utf-8") as f:
             content = f.read()
 
-        # Parse and validate
+        # Parse, validate, renumber and format. songml-format is pretty-printing,
+        # so bar continuity is renumbered automatically rather than left as
+        # something the user must fix by hand.
         try:
-            doc = parse_songml(content)
-
-            # Fix bar numbers in the AST. songml-format is pretty-printing, so bar
-            # continuity is renumbered automatically rather than left as something
-            # the user must fix by hand; only report warnings that aren't fixed here.
-            _fix_bar_numbers_in_ast(doc)
-            reportable_warnings = [w for w in doc.warnings if not is_bar_continuity_warning(w)]
-
-            if reportable_warnings:
-                print(f"Validation warnings ({len(reportable_warnings)}):", file=sys.stderr)
-                for warning in reportable_warnings:
-                    print(f"  {warning}", file=sys.stderr)
-                print("", file=sys.stderr)  # Blank line for readability
+            result = cleanup_songml(content)
         except ParseError as e:
             print(f"✗ Validation failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-        formatted = format_songml(content, parsed_doc=doc)
+        if result.warnings:
+            print(f"Validation warnings ({len(result.warnings)}):", file=sys.stderr)
+            for warning in result.warnings:
+                print(f"  {warning}", file=sys.stderr)
+            print("", file=sys.stderr)  # Blank line for readability
+
+        formatted = result.content
 
         if output_file:
             # Write to file (either in-place or to specified output)
