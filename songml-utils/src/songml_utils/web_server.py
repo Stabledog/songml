@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .chord_voicings import DEFAULT_VOICINGS_PATH, find_local_voicings_path
+from .formatter import cleanup_songml
 from .html_exporter import _CSS, to_html_string
 from .midi_exporter import export_midi
 from .parser import ParseError, parse_songml
@@ -63,6 +64,8 @@ class _Handler(BaseHTTPRequestHandler):
         path = unquote(self.path).split("?")[0]
         if path == "/api/save":
             self._handle_save()
+        elif path == "/api/format":
+            self._handle_format()
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -208,29 +211,58 @@ class _Handler(BaseHTTPRequestHandler):
         body = json.dumps({"ok": True, "path": target.name, "content": content}).encode("utf-8")
         self._send(200, "application/json", body)
 
-    def _handle_save(self):
-        # POST /api/save {"path","content","token"} -> parse, atomic write.
+    def _read_edit_payload(self) -> tuple[dict, str] | None:
+        # Read a JSON body for the editing POST endpoints, check its token, and
+        # require a string "content". Returns (payload, content), or sends the
+        # error response and returns None.
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
         if length <= 0 or length > _MAX_SAVE_BYTES:
             self._send(413, "application/json", b'{"ok":false,"error":"body too large or empty"}')
-            return
+            return None
         try:
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             self._send(400, "application/json", b'{"ok":false,"error":"invalid JSON body"}')
-            return
+            return None
         if not isinstance(payload, dict):
             self._send(400, "application/json", b'{"ok":false,"error":"invalid JSON body"}')
-            return
+            return None
         if not self._check_token(payload.get("token")):
-            return
+            return None
         content = payload.get("content")
         if not isinstance(content, str):
             self._send(400, "application/json", b'{"ok":false,"error":"content is required"}')
+            return None
+        return payload, content
+
+    def _handle_format(self):
+        # POST /api/format {"content","token"} -> {"ok","content","warnings"}.
+        # Runs the songml-format cleanup (renumber bars, align, fix chord
+        # casing) on the editor buffer. Never touches disk; the caller saves.
+        read = self._read_edit_payload()
+        if read is None:
             return
+        _, content = read
+        try:
+            result = cleanup_songml(content)
+        except ParseError as exc:
+            body = json.dumps({"ok": False, "error": f"parse error: {exc}"}).encode("utf-8")
+            self._send(422, "application/json", body)
+            return
+        body = json.dumps(
+            {"ok": True, "content": result.content, "warnings": result.warnings}
+        ).encode("utf-8")
+        self._send(200, "application/json", body)
+
+    def _handle_save(self):
+        # POST /api/save {"path","content","token"} -> parse, atomic write.
+        read = self._read_edit_payload()
+        if read is None:
+            return
+        payload, content = read
         target = self._song_target_or_error(payload.get("path"))
         if target is None:
             return
